@@ -11,3 +11,6 @@ float fSclFix(float from_min, float from_max, float to_min, float to_max, float 
     }
     return from;
 }
+
+#define InterpolateLinearly(x, y, t) x*(1-t) + y*t
+
