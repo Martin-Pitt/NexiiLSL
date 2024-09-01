@@ -1,14 +1,32 @@
-integer gSRx(vector Sp, float Sr, vector Ro, vector Rd){
-    float t;Ro = Ro - Sp;
-    //vector RayOrg = llDetectedPos(x) - llGetPos();
-    if(Rd == ZERO_VECTOR) return FALSE;
-    
+integer sphereRaycast(vector Sp, float Sr, vector Ro, vector Rd)
+{
+    Ro -= Sp;
     float a = Rd * Rd;
     float b = 2 * Rd * Ro;
     float c = (Ro * Ro)  - (Sr * Sr);
-    
-    float disc = b * b - 4 * a * c;
-    
-    if(disc < 0) return FALSE;
+    if((b * b - 4 * a * c) < 0) return FALSE;
     return TRUE;
+}
+
+integer pointInPolygon(vector point, list poly /* = [x0,y0, x1,y1, ...*/)
+{
+    integer oddNodes = FALSE;
+    integer iterator = 0;
+    integer total = llGetListLength(poly);
+    float x2 = llList2Float(poly, -2);
+    float y2 = llList2Float(poly, -1);
+    for(; iterator < total; iterator += 2)
+    {
+        float x1 = llList2Float(poly, iterator);
+        float y1 = llList2Float(poly, iterator + 1);
+        
+        if((y1 < point.y && y2 >= point.y) || (y2 < point.y && y1 >= point.y))
+            if((x1 + (point.y  - y1) / (y2 - y1) * (x2 - x1)) < point.x)
+                oddNodes = !oddNodes;
+        
+        x2 = x1;
+        y2 = y1;
+    }
+    
+    return oddNodes;
 }
