@@ -63,7 +63,7 @@ string DamageTypeAsVerb(integer type)
     //if(type == DAMAGE_TYPE_ACID) return "acid?";
     if(type == DAMAGE_TYPE_BLUDGEONING) return "bludgeoned";
     if(type == DAMAGE_TYPE_COLD) return "frozen";
-    if(type == DAMAGE_TYPE_ELECTRIC) return "electrified";
+    if(type == DAMAGE_TYPE_ELECTRIC) return "electrocuted";
     if(type == DAMAGE_TYPE_FIRE) return "burnt";
     //if(type == DAMAGE_TYPE_FORCE) return "forced?";
     //if(type == DAMAGE_TYPE_NECROTIC) return "nectrotic?";
