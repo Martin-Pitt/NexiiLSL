@@ -56,7 +56,7 @@ string DamageTypeAsNoun(integer type)
     if(type == DAMAGE_TYPE_CRUSHING) return "crushing";
     if(type == DAMAGE_TYPE_ANTI_ARMOR) return "anti-armor";
     if(type == DAMAGE_TYPE_SUFFOCATION) return "suffocation";
-    return "";
+    return "unknown";
 }
 
 string DamageTypeAsVerb(integer type)
@@ -83,5 +83,5 @@ string DamageTypeAsVerb(integer type)
     if(type == DAMAGE_TYPE_CRUSHING) return "crushed";
     if(type == DAMAGE_TYPE_ANTI_ARMOR) return "punched through";
     if(type == DAMAGE_TYPE_SUFFOCATION) return "suffocated";
-    return "";
+    return "damaged";
 }
