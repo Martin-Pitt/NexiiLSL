@@ -3,6 +3,7 @@
 #define DAMAGE_TYPE_EXPLOSIVE 102
 #define DAMAGE_TYPE_CRUSHING 103
 #define DAMAGE_TYPE_ANTI_ARMOR 104
+#define DAMAGE_TYPE_SUFFOCATION 105
 
 string DamageTypeAsConstant(integer type)
 {
@@ -27,6 +28,7 @@ string DamageTypeAsConstant(integer type)
     if(type == DAMAGE_TYPE_EXPLOSIVE) return "DAMAGE_TYPE_EXPLOSIVE";
     if(type == DAMAGE_TYPE_CRUSHING) return "DAMAGE_TYPE_CRUSHING";
     if(type == DAMAGE_TYPE_ANTI_ARMOR) return "DAMAGE_TYPE_ANTI_ARMOR";
+    if(type == DAMAGE_TYPE_SUFFOCATION) return "DAMAGE_TYPE_SUFFOCATION";
     return (string)type;
 }
 
@@ -53,31 +55,33 @@ string DamageTypeAsNoun(integer type)
     if(type == DAMAGE_TYPE_EXPLOSIVE) return "explosive";
     if(type == DAMAGE_TYPE_CRUSHING) return "crushing";
     if(type == DAMAGE_TYPE_ANTI_ARMOR) return "anti-armor";
-    return "";
+    if(type == DAMAGE_TYPE_SUFFOCATION) return "suffocation";
+    return "unknown";
 }
 
 string DamageTypeAsVerb(integer type)
 {
-    //if(type == DAMAGE_TYPE_IMPACT) return "impacted";
-    //if(type == DAMAGE_TYPE_GENERIC) return "damaged";
-    //if(type == DAMAGE_TYPE_ACID) return "acid?";
+    if(type == DAMAGE_TYPE_IMPACT) return "impacted";
+    if(type == DAMAGE_TYPE_GENERIC) return "damaged";
+    if(type == DAMAGE_TYPE_ACID) return "corroded";
     if(type == DAMAGE_TYPE_BLUDGEONING) return "bludgeoned";
     if(type == DAMAGE_TYPE_COLD) return "frozen";
-    if(type == DAMAGE_TYPE_ELECTRIC) return "electrified";
+    if(type == DAMAGE_TYPE_ELECTRIC) return "electrocuted";
     if(type == DAMAGE_TYPE_FIRE) return "burnt";
-    //if(type == DAMAGE_TYPE_FORCE) return "forced?";
-    //if(type == DAMAGE_TYPE_NECROTIC) return "nectrotic?";
+    if(type == DAMAGE_TYPE_FORCE) return "smashed";
+    if(type == DAMAGE_TYPE_NECROTIC) return "necrotised";
     if(type == DAMAGE_TYPE_PIERCING) return "pierced";
     if(type == DAMAGE_TYPE_POISON) return "poisoned";
-    //if(type == DAMAGE_TYPE_PSYCHIC) return "psychic?";
-    //if(type == DAMAGE_TYPE_RADIANT) return "radiant?";
+    if(type == DAMAGE_TYPE_PSYCHIC) return "assaulted";
+    if(type == DAMAGE_TYPE_RADIANT) return "raptured";
     if(type == DAMAGE_TYPE_SLASHING) return "slashed";
-    //if(type == DAMAGE_TYPE_SONIC) return "sonic?";
-    //if(type == DAMAGE_TYPE_EMOTIONAL) return "emotional?";
+    if(type == DAMAGE_TYPE_SONIC) return "ruptured";
+    if(type == DAMAGE_TYPE_EMOTIONAL) return "traumatised";
     if(type == DAMAGE_TYPE_MEDICAL) return "healed";
     if(type == DAMAGE_TYPE_REPAIR) return "repaired";
     if(type == DAMAGE_TYPE_EXPLOSIVE) return "exploded";
     if(type == DAMAGE_TYPE_CRUSHING) return "crushed";
-    //if(type == DAMAGE_TYPE_ANTI_ARMOR) return "anti-armor?";
-    return "";
+    if(type == DAMAGE_TYPE_ANTI_ARMOR) return "punched through";
+    if(type == DAMAGE_TYPE_SUFFOCATION) return "suffocated";
+    return "damaged";
 }
