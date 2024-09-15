@@ -24,3 +24,6 @@ vector hsl( float h, float s, float l ) {
     }
     return <r, g, b>;
 }
+
+#define TEXTURE_CURSORS "18dcdc40-eb58-c42f-b5ef-5e37d7f5f8bd"
+#define CURSOR(a, b) <256/2048., 256/512., 0>, <(128 + (256*a) - 1024)/2048., (256 - 128 + (256*b))/512., 0>
