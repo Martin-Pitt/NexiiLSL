@@ -6,4 +6,4 @@
 #define groupAboutURI(group) "secondlife:///app/group/" + (string)group + "/about"
 #define experienceURI(experience) "secondlife:///app/experience/" + (string)experience + "/profile"
 #define chatURI(channel, message) "secondlife:///app/chat/" + (string)channel + "/" + llEscapeURL(message)
-#define encodeLink(link, label) "[" + link + " " + label + "]"
+#define wikiLink(link, label) "[" + link + " " + label + "]"
