@@ -1,3 +1,6 @@
+#define isSameOwner(identifier) llGetOwnerKey(identifier) == llGetOwner()
+#define notSameOwner(identifier) llGetOwnerKey(identifier) != llGetOwner()
+
 string nth(integer value)
 {
     value = value % 10;
