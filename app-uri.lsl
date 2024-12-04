@@ -2,6 +2,7 @@
 #define agentAboutURI(agent) "secondlife:///app/agent/" + (string)agent + "/about"
 #define regionURI(region) "secondlife:///app/region/" + llEscapeURL(region)
 #define objectURI(object) "secondlife:///app/objectim/" + (string)object + "?name=" + llKey2Name(object) + "&owner=" + llGetOwnerKey(object)
+#define fullObjectURI(object, name, owner) "secondlife:///app/objectim/" + (string)object + "?name=" + name + "&owner=" + (string)owner
 #define groupURI(group) "secondlife:///app/group/" + (string)group + "/inspect"
 #define groupAboutURI(group) "secondlife:///app/group/" + (string)group + "/about"
 #define experienceURI(experience) "secondlife:///app/experience/" + (string)experience + "/profile"
