@@ -43,7 +43,7 @@ string DamageTypeAsNoun(integer type)
     if(type == DAMAGE_TYPE_FIRE) return "fire";
     if(type == DAMAGE_TYPE_FORCE) return "force";
     if(type == DAMAGE_TYPE_NECROTIC) return "necrotic";
-    if(type == DAMAGE_TYPE_PIERCING) return "piercing";
+    if(type == DAMAGE_TYPE_PIERCING) return "shot"; // "piercing";
     if(type == DAMAGE_TYPE_POISON) return "poison";
     if(type == DAMAGE_TYPE_PSYCHIC) return "psychic";
     if(type == DAMAGE_TYPE_RADIANT) return "radiant";
@@ -70,7 +70,7 @@ string DamageTypeAsVerb(integer type)
     if(type == DAMAGE_TYPE_FIRE) return "burnt";
     if(type == DAMAGE_TYPE_FORCE) return "smashed";
     if(type == DAMAGE_TYPE_NECROTIC) return "necrotised";
-    if(type == DAMAGE_TYPE_PIERCING) return "pierced";
+    if(type == DAMAGE_TYPE_PIERCING) return "shot"; // "pierced";
     if(type == DAMAGE_TYPE_POISON) return "poisoned";
     if(type == DAMAGE_TYPE_PSYCHIC) return "assaulted";
     if(type == DAMAGE_TYPE_RADIANT) return "raptured";
@@ -85,3 +85,8 @@ string DamageTypeAsVerb(integer type)
     if(type == DAMAGE_TYPE_SUFFOCATION) return "suffocated";
     return "damaged";
 }
+
+// TODO: Damage Types Icons texture lookup
+// Damage Type Icons Texture: 8ced22b6-5609-ae7c-d559-204b69c96051
+// list DamageTypeAsIcon(integer type) { return [repeats, offsets] }
+
