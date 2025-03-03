@@ -28,12 +28,10 @@ vector hsl( float h, float s, float l ) {
     return <r, g, b>;
 }
 
-#define TEXTURE_CURSORS "18dcdc40-eb58-c42f-b5ef-5e37d7f5f8bd"
-#define CURSOR(a, b) <256/2048., 256/512., 0>, <(128 + (256*a) - 1024)/2048., (256 - 128 + (256*b))/512., 0>
 
-#define TEXSCALE(w, h) <w / RESOLUTION, h / RESOLUTION, 0>
-#define TEXOFFSET(w, h, x, y) <(w*.5 + x - RESOLUTION*.5) / RESOLUTION, (RESOLUTION*.5 - (h*.5 + y)) / RESOLUTION, 0>
-#define TEXSIZE(w, h) w / RESOLUTION*.5, h / RESOLUTION*.5
+// #define TEXTURE_SCALE(w, h) <w / RESOLUTION, h / RESOLUTION, 0>
+// #define TEXTURE_OFFSET(w, h, x, y) <(w*.5 + x - RESOLUTION*.5) / RESOLUTION, (RESOLUTION*.5 - (h*.5 + y)) / RESOLUTION, 0>
+//#define TEXTURE_SIZE(w, h) w / RESOLUTION*.5, h / RESOLUTION*.5
 
 
 /*

@@ -1,9 +1,9 @@
-integer sphereRaycast(vector Sp, float Sr, vector Ro, vector Rd)
+integer sphereRaycast(vector spherePos, float sphereRadius, vector rayOrigin, vector rayDir)
 {
-    Ro -= Sp;
-    float a = Rd * Rd;
-    float b = 2 * Rd * Ro;
-    float c = (Ro * Ro)  - (Sr * Sr);
+    rayOrigin -= spherePos;
+    float a = rayDir * rayDir;
+    float b = 2 * rayDir * rayOrigin;
+    float c = (rayOrigin * rayOrigin)  - (sphereRadius * sphereRadius);
     if((b * b - 4 * a * c) < 0) return FALSE;
     return TRUE;
 }

@@ -5,11 +5,11 @@
 
 // Simple inverse kinematics via trigonemetry
 TrigIK(
-    vector position, // relative position, only uses z (up/down) and x (forward/back)
+    vector position, // relative position, only uses x (forward/back) and z (up/down)
     float joint0, // First joint length
     float joint1, // Second joint length
     vector axis, // Axis that the joint rotates on
-    integer complementary // Whether to use complementary angle on result 
+    integer complementary // Whether to use complementary angle on result
 ) {
     position.y = 0;
     float distance = llVecMag(position);
@@ -56,6 +56,7 @@ TrigIK(
     IK1 = llEuler2Rot(-axis * q1);
     IK2 = llEuler2Rot(-axis * q2);
 }
-integer IKr; // IK results; IK_OUT_OF_REACH, IK_TOO_CLOSE, IK_SUCCESS
+// Return values:
+integer IK; // IK results; IK_OUT_OF_REACH, IK_TOO_CLOSE, IK_SUCCESS
 rotation IK1; // First joint rotation
 rotation IK2; // Second joint rotation
