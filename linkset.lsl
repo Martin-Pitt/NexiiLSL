@@ -24,6 +24,22 @@ list LinksetList(list Needles) {
     return Needles;
 }
 
+#define LinksetScan(conditions) \
+    integer Prims = llGetNumberOfPrims();\
+    do {\
+        string Prim = llGetLinkName(Prims);\
+        conditions\
+    } while(--Prims > 1);
+
+/*
+LinksetScan(
+    if(Prim == "Foot") Foot = Prims; else
+    if(Prim == "Leg") Leg = Prims; else
+    if(Prim == "Torso") Torso = Prims; else
+    if(Prim == "Head") Head = Prims;
+);
+*/
+
 
 /*
 
