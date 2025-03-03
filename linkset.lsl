@@ -24,6 +24,7 @@ list LinksetList(list Needles) {
     return Needles;
 }
 
+// Roll your own loop boilerplate
 #define LinksetScan(conditions) \
     integer Prims = llGetNumberOfPrims();\
     do {\
@@ -38,23 +39,4 @@ LinksetScan(
     if(Prim == "Torso") Torso = Prims; else
     if(Prim == "Head") Head = Prims;
 );
-*/
-
-
-/*
-
-Roll your own loop
-
-LinksetInit() {
-    integer Prims = llGetNumberOfPrims();
-    do {
-        string Prim = llGetLinkName(Prims);
-        if(Prim == "Foot") Foot = Prims; else
-        if(Prim == "Leg") Leg = Prims; else
-        if(Prim == "Torso") Torso = Prims; else
-        if(Prim == "Head") Head = Prims;
-    }
-    while(--Prims > 1);
-}
-
 */
