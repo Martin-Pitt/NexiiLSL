@@ -35,3 +35,31 @@ llSetLinkPrimitiveParamsFast(2, [PRIM_ROT_LOCAL, TurretYaw,
 ]);
 
 */
+
+/*
+Updated Example:
+
+rotation rootRot = llGetRootRotation();
+rotation camRot = llGetCameraRot();
+
+vector hardpointNormal = <0,0,1>;
+rotation localRot = camRot / rootRot;
+rotation targetYaw = ConstrainYaw(localRot, hardpointNormal);
+localRot /= targetYaw;
+rotation targetPitch = ConstrainPitch(localRot, hardpointNormal);
+
+rotation yaw = stepRotation(lastYaw, targetYaw, turretTraverseSpeed * frameRate);
+rotation pitch = stepRotation(lastPitch, targetPitch, turretPitchSpeed * frameRate);
+
+lastYaw = yaw;
+lastPitch = pitch;
+
+llSetLinkPrimitiveParamsFast(LINK_THIS, [
+    PRIM_LINK_TARGET, LinkTurret,
+    PRIM_ROT_LOCAL, yaw,
+    PRIM_LINK_TARGET, LinkBarrel,
+    PRIM_ROT_LOCAL, pitch * yaw,
+    PRIM_POS_LOCAL, turretBase + <.6,0,0> * pitch * yaw
+]);
+
+*/
