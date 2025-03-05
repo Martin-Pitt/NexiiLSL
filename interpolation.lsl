@@ -126,5 +126,6 @@ rotation stepRotation(rotation a, rotation b, float speed) {
     float ang = llAngleBetween(a, b);
     if(ang > PI) ang -= TWO_PI;
     if(ang > speed) ang = speed;
+    else if(ang < speed) return b;
     return a * llAxisAngle2Rot( llRot2Axis(b/a)*a, ang);
 }
