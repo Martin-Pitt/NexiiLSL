@@ -120,3 +120,11 @@ float targetStep(float current, float target, float min, float max, float speed)
     if(current < min) current = min; else if(current > max) current = max;
     return current;
 }
+
+// Allows you to target a rotation by incrementing towards it by speed, see example in rotation.lsl
+rotation stepRotation(rotation a, rotation b, float speed) {
+    float ang = llAngleBetween(a, b);
+    if(ang > PI) ang -= TWO_PI;
+    if(ang > speed) ang = speed;
+    return a * llAxisAngle2Rot( llRot2Axis(b/a)*a, ang);
+}
