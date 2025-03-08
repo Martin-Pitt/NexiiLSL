@@ -86,7 +86,36 @@ string DamageTypeAsVerb(integer type)
     return "damaged";
 }
 
-// TODO: Damage Types Icons texture lookup
-// Damage Type Icons Texture: 8ced22b6-5609-ae7c-d559-204b69c96051
-// list DamageTypeAsIcon(integer type) { return [repeats, offsets] }
+list DamageTypeAsIcon(integer type)
+{
+    vector offset; integer variant = (integer)llFrand(32.0);
+    if(type == DAMAGE_TYPE_IMPACT) offset = <variant % 4, 0, 0>;
+    else if(type == DAMAGE_TYPE_GENERIC) offset = <4, 0, 0>;
+    else if(type == DAMAGE_TYPE_ACID)  offset = <5, 0, 0>;
+    else if(type == DAMAGE_TYPE_BLUDGEONING)  offset = <6, 0, 0>;
+    else if(type == DAMAGE_TYPE_COLD)  offset = <7, 0, 0>;
+    else if(type == DAMAGE_TYPE_ELECTRIC)  offset = <8, 0, 0>;
+    else if(type == DAMAGE_TYPE_FIRE)  offset = <9, 0, 0>;
+    else if(type == DAMAGE_TYPE_FORCE)  offset = <10, 0, 0>;
+    else if(type == DAMAGE_TYPE_NECROTIC)  offset = <11, 0, 0>;
+    else if(type == DAMAGE_TYPE_PIERCING)  offset = <12, 0, 0>;
+    else if(type == DAMAGE_TYPE_POISON)  offset = <13, 0, 0>;
+    else if(type == DAMAGE_TYPE_PSYCHIC)  offset = <14, 0, 0>;
+    else if(type == DAMAGE_TYPE_RADIANT)  offset = <15, 0, 0>;
+    else if(type == DAMAGE_TYPE_SLASHING)  offset = <0, 1, 0>;
+    else if(type == DAMAGE_TYPE_SONIC)  offset = <1 + (variant % 2), 1, 0>;
+    else if(type == DAMAGE_TYPE_EMOTIONAL)  offset = <3, 1, 0>;
+    else if(type == DAMAGE_TYPE_MEDICAL)  offset = <4 + (variant % 2), 1, 0>;
+    else if(type == DAMAGE_TYPE_REPAIR)  offset = <6 + (variant % 2), 1, 0>;
+    else if(type == DAMAGE_TYPE_EXPLOSIVE)  offset = <8, 1, 0>;
+    else if(type == DAMAGE_TYPE_CRUSHING)  offset = <9, 1, 0>;
+    else if(type == DAMAGE_TYPE_ANTI_ARMOR)  offset = <10, 1, 0>;
+    else if(type == DAMAGE_TYPE_SUFFOCATION)  offset = <12, 1, 0>;
+    return [
+        "75427327-fd09-d86b-4a43-d90335a9ea36",
+        <128./2048., 128./256., 0>,
+        <(offset.x - 7.5) / 16, (offset.y - 1.5) / 2, 0>,
+        0
+    ];
+}
 
