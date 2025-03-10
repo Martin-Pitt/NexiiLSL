@@ -111,11 +111,37 @@ list DamageTypeAsIcon(integer type)
     else if(type == DAMAGE_TYPE_CRUSHING)  offset = <9, 1, 0>;
     else if(type == DAMAGE_TYPE_ANTI_ARMOR)  offset = <10, 1, 0>;
     else if(type == DAMAGE_TYPE_SUFFOCATION)  offset = <12, 1, 0>;
+    
+    // These are not damage types but additional icons related to combat
+    else if(type == -100) offset = <0, 3, 0>; // Death
+    else if(type == -101) offset = <1, 3, 0>; // Enemy Death
+    else if(type == -102) offset = <2, 3, 0>; // Friendly Death
+    else if(type == -103) offset = <3, 3, 0>; // Object Death
+    else if(type == -104) offset = <4, 3, 0>; // Vehicle Death
+    else if(type == -105) offset = <5, 3, 0>; // Aircraft Death
+    
     return [
-        "75427327-fd09-d86b-4a43-d90335a9ea36",
-        <128./2048., 128./256., 0>,
-        <(offset.x - 7.5) / 16, (offset.y - 1.5) / 2, 0>,
+        "808176f8-c8c4-c17c-4509-cf7598ea2186",
+        <128./2048., 128./512., 0>,
+        <(offset.x - 7.5) / 16, (1.5 - offset.y) / 4, 0>,
         0
     ];
 }
 
+/*
+How to apply anti-armor damage with LBA compatibility:
+
+// Anti-Armor damage
+if(llGetHealth(target) > 0) llDamage(target, damage, DAMAGE_TYPE_ANTI_ARMOR);
+else
+{
+    // LBA damage fallback
+    string desc = (string)llGetObjectDetails(target, [OBJECT_DESC]);
+    if(llGetSubString(desc, 0, 5) == "LBA.v.")
+    {
+        integer channelLBA = integer("0x" + llGetSubString(llMD5String(target, 0), 0, 3));
+        llRegionSayTo(target, channelLBA, target + "," + (string)damage);
+    }
+}
+
+*/
