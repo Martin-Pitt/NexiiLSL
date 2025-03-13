@@ -1,5 +1,3 @@
-#include "Common/texture.lsl"
-
 // For rendering icons placed neatly into an even grid layout in a square texture resolution
 #define SPRITESHEET(icon, size, resolution) \
     TEXTURE_COORDS(\
