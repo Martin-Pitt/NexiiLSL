@@ -40,3 +40,38 @@ LinksetScan(
     if(Prim == "Head") Head = Prims;
 );
 */
+
+
+integer LinksetResourceReserve(string kv) {
+    string links = llLinksetDataRead(kv);
+    if(llStringLength(links) == 0) return FALSE;
+    llLinksetDataWrite(kv, llDeleteSubString(links, 0, 0));
+    return 1 + llOrd(links, 0);
+}
+
+LinksetResourceRelease(string kv, integer link) {
+    llLinksetDataWrite(kv, llLinksetDataRead(kv) + llChar(link - 1));
+}
+
+LinksetResourceSetup(string kv, string pattern) {
+    string links;
+    integer iterator = llGetNumberOfPrims();
+    while(iterator --> 0)
+    {
+        string name = llGetLinkName(1 + iterator);
+        if(name == pattern) links += llChar(iterator);
+    }
+    llLinksetDataWrite(kv, links);
+}
+
+LinksetResourceReset(string kv, list reset) {
+    list params;
+    string links = llLinksetDataRead(kv);
+    integer iterator = llStringLength(links);
+    while(iterator --> 0)
+    {
+        params += [PRIM_LINK_TARGET, 1 + llOrd(links, iterator)] + reset;
+        if(llGetFreeMemory() < 1500) { llSetLinkPrimitiveParamsFast(0, params); params = []; }
+    }
+    if(params) llSetLinkPrimitiveParamsFast(0, params);
+}
