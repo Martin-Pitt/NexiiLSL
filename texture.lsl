@@ -1,19 +1,8 @@
-#define TEXTURE_RESOLUTION 2048.
-#define TEXTURE_OFFSET(x, y) <(x - TEXTURE_RESOLUTION/2) / TEXTURE_RESOLUTION, -(y - TEXTURE_RESOLUTION/2) / TEXTURE_RESOLUTION, 0>
-#define TEXTURE_REPEAT(w, h) <w / TEXTURE_RESOLUTION, h / TEXTURE_RESOLUTION, 0>
+// This is the heart of managing texture coordinates, by converting pixel coordinates into SL texture uv coords
+#define TEXTURE_REPEAT(w, h, tw, th) <w / tw, h / th, 0>
+#define TEXTURE_OFFSET(x, y, tw, th) <((x) - tw/2) / tw, -((y) - th/2) / th, 0>
+#define TEXTURE_COORDS(x, y, w, h, tw, th) <w / tw, h / th, 0>, <((x) - tw/2) / tw, -((y) - th/2) / th, 0>
 
-#define TEXTURE_CURSORS "18dcdc40-eb58-c42f-b5ef-5e37d7f5f8bd"
-#define CURSOR(a, b) <256/2048., 256/512., 0>, <(128 + (256*a) - 1024)/2048., (256 - 128 + (256*b))/512., 0>
-
-
-// Render a digit 0-999 to texture parameters
-// Use like: [PRIM_TEXTURE, 2, NUMBER_DIGIT(integer example), 0]
-#define NUMBER_WIDTH 75.
-#define NUMBER_HEIGHT 48.
-#define NUMBER_COLUMNS 27
-#define NUMBER_DIGIT(digit) \
-    "11d6bf6b-1457-74b8-ab08-1dd8cdb9945c",\
-    TEXTURE_REPEAT(NUMBER_WIDTH, NUMBER_HEIGHT),\
-    TEXTURE_OFFSET(NUMBER_WIDTH*.5 + digit % NUMBER_COLUMNS * NUMBER_WIDTH, NUMBER_HEIGHT*.5 + digit / NUMBER_COLUMNS * NUMBER_HEIGHT),\
-    0
-
+// #define TEXTURE_RESOLUTION 2048.
+// #define TEXTURE_OFFSET(x, y) <(x - TEXTURE_RESOLUTION/2) / TEXTURE_RESOLUTION, -(y - TEXTURE_RESOLUTION/2) / TEXTURE_RESOLUTION, 0>
+// #define TEXTURE_REPEAT(w, h) <w / TEXTURE_RESOLUTION, h / TEXTURE_RESOLUTION, 0>
