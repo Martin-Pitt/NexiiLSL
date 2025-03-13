@@ -143,5 +143,4 @@ else
         llRegionSayTo(target, channelLBA, target + "," + (string)damage);
     }
 }
-
 */
