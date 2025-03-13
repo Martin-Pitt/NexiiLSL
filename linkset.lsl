@@ -44,13 +44,13 @@ LinksetScan(
 
 integer LinksetResourceReserve(string kv) {
     string links = llLinksetDataRead(kv);
-    if(llStringLength(links) == 0) return FALSE;
+    if(links == "") return FALSE;
     llLinksetDataWrite(kv, llDeleteSubString(links, 0, 0));
     return 1 + llOrd(links, 0);
 }
 
 LinksetResourceRelease(string kv, integer link) {
-    llLinksetDataWrite(kv, llLinksetDataRead(kv) + llChar(link - 1));
+    llLinksetDataWrite(kv, llChar(link - 1) + llLinksetDataRead(kv));
 }
 
 LinksetResourceSetup(string kv, string pattern) {
@@ -59,7 +59,7 @@ LinksetResourceSetup(string kv, string pattern) {
     while(iterator --> 0)
     {
         string name = llGetLinkName(1 + iterator);
-        if(name == pattern) links += llChar(iterator);
+        if(name == pattern) links = llChar(iterator) + links;
     }
     llLinksetDataWrite(kv, links);
 }
