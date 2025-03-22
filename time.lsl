@@ -27,3 +27,33 @@ integer CompareTimestamps(string a, string b)
     if(aSecond < bSecond) return -1; else if(aSecond > bSecond) return 1;
     return 0;
 }
+
+// Pure string version of https://wiki.secondlife.com/wiki/Stamp2UnixInt
+integer Timestamp2Unix(string stamp)
+{
+    integer year = (integer)llGetSubString(stamp, 0, 3);
+    integer month = (integer)llGetSubString(stamp, 5, 6);
+    integer day = (integer)llGetSubString(stamp, 8, 9);
+    integer hours = (integer)llGetSubString(stamp, 11, 12);
+    integer minutes = (integer)llGetSubString(stamp, 14, 15);
+    integer seconds = (integer)llGetSubString(stamp, 17, -2);
+    
+    year -= 1902;
+    if(year >> 31 | year / 136) return 2145916800 * (1 | year >> 31);
+    
+    month = ~-month;
+    day = ~-day;
+    
+    integer days = (integer)(year * 365.25 + 0.25) - 24837 +
+        month * 30 + (month - (month < 7) >> 1) + (month < 2) -
+        (((year + 2) & 3) > 0) * (month > 1) + day;
+    
+    return (
+        days * 86400 +
+        hours * 3600 +
+        minutes * 60 +
+        seconds
+    );
+}
+
+
