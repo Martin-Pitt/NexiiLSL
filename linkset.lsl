@@ -75,3 +75,6 @@ LinksetResourceReset(string kv, list reset) {
     }
     if(params) llSetLinkPrimitiveParamsFast(0, params);
 }
+
+// TODO: An inverse version of linkset resource, but basically a way to store used linkset numbers
+// E.g. somewhere to easily dump linkset nums into a specific named LSD key

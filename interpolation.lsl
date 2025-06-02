@@ -107,7 +107,7 @@ rotation interpolateRotationCubic(rotation a, rotation b, rotation c, rotation d
 
 
 // Target
-// Increments a float value towards a target number by stepping towards with the given speed
+// Increments a float value towards a target number by stepping towards target with the given speed
 // If it's close enough it returns the target value; Also includes min/max clamping
 // This can be useful when dynamically driving values, such as vehicle engine power, etc.
 float targetStep(float current, float target, float min, float max, float speed) {
@@ -121,7 +121,7 @@ float targetStep(float current, float target, float min, float max, float speed)
     return current;
 }
 
-// Allows you to target a rotation by incrementing towards it by speed, see example in rotation.lsl
+// Allows you to target a rotation by incrementing towards it by speed, see example in rotations.lsl
 rotation stepRotation(rotation a, rotation b, float speed) {
     float ang = llAngleBetween(a, b);
     if(ang > PI) ang -= TWO_PI;

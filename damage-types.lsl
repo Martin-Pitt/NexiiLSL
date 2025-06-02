@@ -5,6 +5,7 @@
 #define DAMAGE_TYPE_ANTI_ARMOR 104
 #define DAMAGE_TYPE_SUFFOCATION 105
 
+// Returns name of the constant that identifies the damage type
 string DamageTypeAsConstant(integer type)
 {
     if(type == DAMAGE_TYPE_IMPACT) return "DAMAGE_TYPE_IMPACT";
@@ -32,6 +33,7 @@ string DamageTypeAsConstant(integer type)
     return (string)type;
 }
 
+// Returns damage type as a noun for use in sentences to describe the damage type
 string DamageTypeAsNoun(integer type)
 {
     if(type == DAMAGE_TYPE_IMPACT) return "impact";
@@ -59,6 +61,7 @@ string DamageTypeAsNoun(integer type)
     return "unknown";
 }
 
+// Returns damage type as a verb for use in sentences as how it was applied to a target
 string DamageTypeAsVerb(integer type)
 {
     if(type == DAMAGE_TYPE_IMPACT) return "impacted";
@@ -86,6 +89,7 @@ string DamageTypeAsVerb(integer type)
     return "damaged";
 }
 
+// Returns PRIM_TEXTURE params for rendering the damage type as an icon
 list DamageTypeAsIcon(integer type)
 {
     vector offset; integer variant = (integer)llFrand(32.0);
@@ -129,7 +133,7 @@ list DamageTypeAsIcon(integer type)
 }
 
 /*
-How to apply anti-armor damage with LBA compatibility:
+How to apply anti-armor damage in Combat2, with compatibility fallback to LBA (Listen Based Armor):
 
 // Anti-Armor damage
 if(llGetHealth(target) > 0) llDamage(target, damage, DAMAGE_TYPE_ANTI_ARMOR);
@@ -143,4 +147,10 @@ else
         llRegionSayTo(target, channelLBA, target + "," + (string)damage);
     }
 }
+
+
+Alternatively if you have llDetectedType available, such as from a collision or a sensor,
+use that instead of llGetHealth as you can check for DAMAGEABLE which is better, as it
+signifies the object can actually *process damage*
+
 */

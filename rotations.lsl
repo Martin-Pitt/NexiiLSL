@@ -39,6 +39,10 @@ llSetLinkPrimitiveParamsFast(2, [PRIM_ROT_LOCAL, TurretYaw,
 /*
 Updated Example:
 
+This script allows you to create very nice rotation animations for turrets, which tend to have
+separate speeds when it comes turret traversal (yaw) and barrel rotation (pitch)
+
+
 rotation rootRot = llGetRootRotation();
 rotation camRot = llGetCameraRot();
 

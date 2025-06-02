@@ -1,3 +1,4 @@
+// Allows efficient raycasting against a sphere
 integer sphereRaycast(vector spherePos, float sphereRadius, vector rayOrigin, vector rayDir)
 {
     rayOrigin -= spherePos;
@@ -8,6 +9,8 @@ integer sphereRaycast(vector spherePos, float sphereRadius, vector rayOrigin, ve
     return TRUE;
 }
 
+// Checks if a point is contained within a polygon
+// Well known algorithm whereby you check how many edges it crosses
 integer pointInPolygon(vector point, list poly /* = [x0,y0, x1,y1, ...*/)
 {
     integer oddNodes = FALSE;
