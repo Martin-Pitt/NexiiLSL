@@ -1,45 +1,101 @@
 // Returns a list of linkset numbers from a prim name
-list LinksByName(string Needle) {
-    list Needles;
-    integer Hay = 1;
-    integer Stacks = llGetNumberOfPrims();
-    for(; Hay <= Stacks; ++Hay ) if(llGetLinkName(Hay) == Needle) Needles += Hay;
-    return Needles;
+list LinksByName(string needle) {
+    list needles;
+    integer link = 1;
+    integer prims = llGetNumberOfPrims();
+    for(; link <= prims; ++link) if(llGetLinkName(link) == needle) needles += link;
+    return needles;
 }
 
 // Returns a linkset number based on the name
-integer LinkByName(string Needle) {
-    integer Prims = llGetNumberOfPrims()+1;
-    while(--Prims) if(llGetLinkName(Prims) == Needle) return Prims;
+integer LinkByName(string needle) {
+    integer prims = llGetNumberOfPrims() + 1;
+    while(--prims) if(llGetLinkName(prims) == needle) return prims;
     return FALSE;
 }
 
 // Converts a list of prim names to a list of linkset numbers
-list LinksetList(list Needles) {
-    integer Prims = llGetNumberOfPrims()+1;
-    while(--Prims) {
-        integer Ptr = llListFindList(Needles,[llGetLinkName(Prims)]);
-        if(~Ptr) Needles = llListReplaceList(Needles,[Prims],Ptr,Ptr);
+list LinksetList(list needles) {
+    integer prims = llGetNumberOfPrims() + 1;
+    while(--prims) {
+        integer pointer = llListFindList(needles, [llGetLinkName(prims)]);
+        if(~pointer) needles = llListReplaceList(needles, [prims], pointer, pointer);
     }
-    return Needles;
+    return needles;
 }
 
 // Roll your own loop boilerplate
 #define LinksetScan(conditions) \
-    integer Prims = llGetNumberOfPrims();\
+    integer link = llGetNumberOfPrims();\
     do {\
-        string Prim = llGetLinkName(Prims);\
+        string name = llGetLinkName(link);\
         conditions\
-    } while(--Prims > 1);
+    } while(--link > 1);
 
 /*
 LinksetScan(
-    if(Prim == "Foot") Foot = Prims; else
-    if(Prim == "Leg") Leg = Prims; else
-    if(Prim == "Torso") Torso = Prims; else
-    if(Prim == "Head") Head = Prims;
+    if(name == "Foot") Foot = link;
+    else if(name == "Leg") Leg = link;
+    else if(name == "Torso") Torso = link;
+    else if(name == "Head") Head = link;
 );
 */
+
+
+// Remote linkset scanning variants, returns keys instead of linkset numbers
+
+// Returns a list of linkset keys from a prim name
+list ObjectLinksByName(key object, string needle) {
+    list needles;
+    integer link = 1;
+    integer prims = llGetObjectPrimCount(Object);
+    for(; link <= prims; ++link)
+    {
+        key linkKey = llGetObjectLinkKey(object, link);
+        string linkName = llKey2Name(linkKey);
+        if(linkName == needle) needles += linkKey;
+    }
+    return needles;
+}
+
+// Returns a linkset key based on the name
+key ObjectLinkByName(key object, string needle) {
+    integer prims = llGetObjectPrimCount(object) + 1;
+    while(--prims)
+    {
+        key linkKey = llGetObjectLinkKey(object, prims);
+        string linkName = llKey2Name(linkKey);
+        if(linkName == needle) return linkKey;
+    }
+    return NULL_KEY;
+}
+
+// Converts a list of prim names to a list of linkset keys
+list ObjectLinksetList(key object, list needles) {
+    integer prims = llGetObjectPrimCount(object) + 1;
+    while(--prims) {
+        key linkKey = llGetObjectLinkKey(object, prims);
+        string linkName = llKey2Name(linkKey);
+        integer pointer = llListFindList(meedles, [linkName]);
+        if(~pointer) needles = llListReplaceList(needles, [linkKey], pointer, pointer);
+    }
+    return needles;
+}
+
+// Roll your own loop boilerplate
+#define ObjectLinksetScan(object, conditions) \
+    integer link = llGetObjectPrimCount(object);\
+    do {\
+        key linkKey = llGetObjectLinkKey(object, link);\
+        string linkName = llKey2Name(linkKey);\
+        conditions\
+    } while(--link > 1);
+
+
+
+
+
+
 
 
 integer LinksetResourceReserve(string kv) {
@@ -78,3 +134,18 @@ LinksetResourceReset(string kv, list reset) {
 
 // TODO: An inverse version of linkset resource, but basically a way to store used linkset numbers
 // E.g. somewhere to easily dump linkset nums into a specific named LSD key
+
+integer LinksetResourceUse(string kvPool, string kvUsed) {
+    string links = llLinksetDataRead(kvPool);
+    if(links == "") return FALSE;
+    llLinksetDataWrite(kvPool, llDeleteSubString(links, 0, 0));
+    integer link = 1 + llOrd(links, 0);
+    llLinksetDataWrite(kvUsed, llChar(link - 1) + llLinksetDataRead(kvUsed));
+    return link;
+}
+
+LinksetResourceFreeAll(string kvPool, string kvUsed) {
+    llLinksetDataWrite(kvPool, llLinksetDataRead(kvUsed) + llLinksetDataRead(kvPool));
+    llLinksetDataWrite(kvUsed, "");
+}
+
