@@ -48,7 +48,7 @@ LinksetScan(
 list ObjectLinksByName(key object, string needle) {
     list needles;
     integer link = 1;
-    integer prims = llGetObjectPrimCount(Object);
+    integer prims = llGetObjectPrimCount(object);
     for(; link <= prims; ++link)
     {
         key linkKey = llGetObjectLinkKey(object, link);
@@ -76,7 +76,7 @@ list ObjectLinksetList(key object, list needles) {
     while(--prims) {
         key linkKey = llGetObjectLinkKey(object, prims);
         string linkName = llKey2Name(linkKey);
-        integer pointer = llListFindList(meedles, [linkName]);
+        integer pointer = llListFindList(needles, [linkName]);
         if(~pointer) needles = llListReplaceList(needles, [linkKey], pointer, pointer);
     }
     return needles;
