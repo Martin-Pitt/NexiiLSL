@@ -28,7 +28,7 @@ list LinksetList(list needles) {
 #define LinksetScan(conditions) \
     integer link = llGetNumberOfPrims();\
     do {\
-        string name = llGetLinkName(link);\
+        string linkName = llGetLinkName(link);\
         conditions\
     } while(--link > 1);
 
