@@ -12,11 +12,9 @@ default
     state_entry()
     {
         //////////////////////////////////////////////////////////////////////////////////////////////////////
-        /// Compact float
+        /// Compact unsigned float
         {
-            #define MINIMUM 0.0
             #define MAXIMUM 2048.0
-            #define RANGE (MAXIMUM - MINIMUM)
             float quantizer = (UTF8_1B_MAX - 1) / RANGE;
             
             float input = 1337.256;
@@ -24,6 +22,19 @@ default
             string compressed = llChar(1 + integer(input * quantizer);
             
             float output = (llOrd(compressed, 0) - 1) / quantizer;
+        }
+        
+        //////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// Compact signed float
+        {
+            #define RANGE 2048.0
+            float quantizer = (UTF8_1B_MAX - 1) / RANGE / 2;
+            
+            float input = 1337.256;
+            
+            string compressed = llChar(1 + integer(quantizer + input * quantizer);
+            
+            float output = ((llOrd(compressed, 0) - 1) - quantizer) / quantizer;
         }
         
         //////////////////////////////////////////////////////////////////////////////////////////////////////
