@@ -26,3 +26,13 @@ integer stringBytes(string str) {
     }
     return bytes;
 }
+
+// From https://wiki.secondlife.com/wiki/Efficient_Hex
+string bits2nybbles(integer bits) {
+    integer lsn; // least significant nybble
+    string nybbles = "";
+    do
+        nybbles = llGetSubString("0123456789abcdef", lsn = (bits & 0xF), lsn) + nybbles;
+    while (bits = (0xfffFFFF & (bits >> 4)));
+    return nybbles;
+}
