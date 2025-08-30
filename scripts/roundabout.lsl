@@ -35,6 +35,7 @@ default
     state_entry()
     {
         llMessageLinked(LINK_SET, CHANNEL_ROUNDABOUT, "init", "");
+        llLinksetDataWrite("Roundabout", "init");
         state subordinate;
     }
 }
@@ -90,6 +91,7 @@ state subordinate
             // Announce to other scripts we are subordinate and ready to request data
             if(Controller == NULL_KEY)
             {
+                llLinksetDataWrite("Roundabout", "subordinate");
                 llMessageLinked(LINK_SET, CHANNEL_ROUNDABOUT, "subordinate", "");
                 Controller = identifier;
             }
@@ -192,6 +194,7 @@ state controller
         string signature = llSignRSA(PrivateKey, text, "sha512");
         llRegionSay(CHANNEL_ROUNDABOUT, signature + text);
         
+        llLinksetDataWrite("Roundabout", "controller");
         llMessageLinked(LINK_SET, CHANNEL_ROUNDABOUT, "controller", "");
         llListen(CHANNEL_ROUNDABOUT, "", "", "");
     }
@@ -217,6 +220,7 @@ state controller
             // Huh? There was another controller?
             LastController = llGetTime();
             Controller = identifier;
+            llLinksetDataWrite("Roundabout", "subordinate");
             llMessageLinked(LINK_SET, CHANNEL_ROUNDABOUT, "subordinate", "");
             state subordinate;
         }
