@@ -4,6 +4,7 @@
 #define DAMAGE_TYPE_CRUSHING 103
 #define DAMAGE_TYPE_ANTI_ARMOR 104
 #define DAMAGE_TYPE_SUFFOCATION 105
+#define DAMAGE_TYPE_RESPAWN 106
 
 // Returns name of the constant that identifies the damage type
 string DamageTypeAsConstant(integer type)
@@ -30,6 +31,7 @@ string DamageTypeAsConstant(integer type)
     if(type == DAMAGE_TYPE_CRUSHING) return "DAMAGE_TYPE_CRUSHING";
     if(type == DAMAGE_TYPE_ANTI_ARMOR) return "DAMAGE_TYPE_ANTI_ARMOR";
     if(type == DAMAGE_TYPE_SUFFOCATION) return "DAMAGE_TYPE_SUFFOCATION";
+    if(type == DAMAGE_TYPE_RESPAWN) return "DAMAGE_TYPE_RESPAWN";
     return (string)type;
 }
 
@@ -58,6 +60,7 @@ string DamageTypeAsNoun(integer type)
     if(type == DAMAGE_TYPE_CRUSHING) return "crushing";
     if(type == DAMAGE_TYPE_ANTI_ARMOR) return "anti-armor";
     if(type == DAMAGE_TYPE_SUFFOCATION) return "suffocation";
+    if(Type == DAMAGE_TYPE_RESPAWN) return "respawn";
     return "unknown";
 }
 
@@ -86,6 +89,7 @@ string DamageTypeAsVerb(integer type)
     if(type == DAMAGE_TYPE_CRUSHING) return "crushed";
     if(type == DAMAGE_TYPE_ANTI_ARMOR) return "punched through";
     if(type == DAMAGE_TYPE_SUFFOCATION) return "suffocated";
+    if(type == DAMAGE_TYPE_RESPAWN) return "respawned";
     return "damaged";
 }
 
@@ -115,6 +119,7 @@ list DamageTypeAsIcon(integer type)
     else if(type == DAMAGE_TYPE_CRUSHING)  offset = <9, 1, 0>;
     else if(type == DAMAGE_TYPE_ANTI_ARMOR)  offset = <10, 1, 0>;
     else if(type == DAMAGE_TYPE_SUFFOCATION)  offset = <12, 1, 0>;
+    else if(type == DAMAGE_TYPE_RESPAWN) offset = <8, 3, 0>;
     
     // These are not damage types but additional icons related to combat
     else if(type == -100) offset = <0, 3, 0>; // Death
@@ -123,14 +128,37 @@ list DamageTypeAsIcon(integer type)
     else if(type == -103) offset = <3, 3, 0>; // Object Death
     else if(type == -104) offset = <4, 3, 0>; // Vehicle Death
     else if(type == -105) offset = <5, 3, 0>; // Aircraft Death
+    else if(type == -106) offset = <6, 3, 0>; // Unconscious/Downed
+    else if(type == -107) offset = <7, 3, 0>; // Revive Requested
+    else if(type == -108) offset = <8, 3, 0>; // Being Revived
+    
+    /*
+        Potential other icons:
+        - Respawn, Redeploy
+        - Mech Death
+        - Shield Hit, Armor Hit, Critical Hit, EMP Hit
+        - Critical Hit, Enemy Critical Hit, Friendly Critical Hit
+        - Blocked Hit, Enemy Blocked Hit, Friendly Blocked Hit
+        - Missed Hit, Enemy Missed Hit, Friendly Missed Hit
+        - Civilian Down, Enemy Down, Friendly Down
+        - Kill Assist
+        - Headshot
+        - Target Locked, Target Lost
+        - Out of Ammo, Low Ammo, Reloading
+        - Overheated, Jammed, Hacked, Disarmed, Suppressed, Spotted, Invisible
+        - Invulnerable, Vulnerable
+        - Buffed, Debuffed
+    */
     
     return [
-        "808176f8-c8c4-c17c-4509-cf7598ea2186",
+        "2d053029-7baa-104d-fd8e-34b2112b4b78",
         <128./2048., 128./512., 0>,
         <(offset.x - 7.5) / 16, (1.5 - offset.y) / 4, 0>,
         0
     ];
 }
+
+
 
 /*
 How to apply anti-armor damage in Combat2, with compatibility fallback to LBA (Listen Based Armor):
