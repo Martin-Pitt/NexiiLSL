@@ -95,20 +95,9 @@ list ObjectLinksetList(key object, list needles) {
 
 
 
+// "Linkset Resources" use Linkset Data to store/cache an array of linkset numbers in a compact format, typically for a bunch of reusable prims
 
-
-
-integer LinksetResourceReserve(string kv) {
-    string links = llLinksetDataRead(kv);
-    if(links == "") return FALSE;
-    llLinksetDataWrite(kv, llDeleteSubString(links, 0, 0));
-    return 1 + llOrd(links, 0);
-}
-
-LinksetResourceRelease(string kv, integer link) {
-    llLinksetDataWrite(kv, llChar(link - 1) + llLinksetDataRead(kv));
-}
-
+// Sets up a Linkset Resource on the key kv, finding prims in the linkset whose name exactly matches pattern to put into the resource
 LinksetResourceSetup(string kv, string pattern) {
     string links;
     integer iterator = llGetNumberOfPrims();
@@ -120,6 +109,20 @@ LinksetResourceSetup(string kv, string pattern) {
     llLinksetDataWrite(kv, links);
 }
 
+// Pulls out a linkset number from the resource
+integer LinksetResourceReserve(string kv) {
+    string links = llLinksetDataRead(kv);
+    if(links == "") return FALSE;
+    llLinksetDataWrite(kv, llDeleteSubString(links, 0, 0));
+    return 1 + llOrd(links, 0);
+}
+
+// Releases a linkset number back into the resource
+LinksetResourceRelease(string kv, integer link) {
+    llLinksetDataWrite(kv, llChar(link - 1) + llLinksetDataRead(kv));
+}
+
+// Resets the prim params for a Linkset Resource, e.g. to reset a bunch of reusable prims to a default state out of sight
 LinksetResourceReset(string kv, list reset) {
     list params;
     string links = llLinksetDataRead(kv);
@@ -132,9 +135,13 @@ LinksetResourceReset(string kv, list reset) {
     if(params) llSetLinkPrimitiveParamsFast(0, params);
 }
 
-// TODO: An inverse version of linkset resource, but basically a way to store used linkset numbers
-// E.g. somewhere to easily dump linkset nums into a specific named LSD key
 
+
+// These two functions build upon linkset resources at a higher level, so that you can trade linkset numbers between resources
+// For example to have one linkset resource of unused reusable prims, and another for reusable prims you are currently using to render in a UI
+
+// Takes out a linkset number from the "Pool" resource and puts it into the "Used" resource
+// You can flip the kv's to do the reverse
 integer LinksetResourceUse(string kvPool, string kvUsed) {
     string links = llLinksetDataRead(kvPool);
     if(links == "") return FALSE;
@@ -144,8 +151,11 @@ integer LinksetResourceUse(string kvPool, string kvUsed) {
     return link;
 }
 
+// Frees up all the linkset numbers by moving all from the "Used" resource and puts them back into "Pool" resource
 LinksetResourceFreeAll(string kvPool, string kvUsed) {
     llLinksetDataWrite(kvPool, llLinksetDataRead(kvUsed) + llLinksetDataRead(kvPool));
     llLinksetDataWrite(kvUsed, "");
 }
 
+// TODO: A way to move a specific linkset number from a "Used" resource into the "Pool" resource in one function
+// LinksetResourceFree(string kvPool, string kvUsed, integer link) {...}
