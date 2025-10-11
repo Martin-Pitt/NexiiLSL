@@ -1,3 +1,7 @@
+////////////////////////////////////////////////////////////////////////////////////////////
+/// Linkset scanning functions
+/// These functions return linkset numbers
+
 // Returns a list of linkset numbers from a prim name
 list LinksByName(string needle) {
     list needles;
@@ -32,17 +36,21 @@ list LinksetList(list needles) {
         conditions\
     } while(--link > 1);
 
-/*
+/* Usage:
 LinksetScan(
-    if(name == "Foot") Foot = link;
-    else if(name == "Leg") Leg = link;
-    else if(name == "Torso") Torso = link;
-    else if(name == "Head") Head = link;
+    if(linkName == "Foot") Foot = link;
+    else if(linkName == "Leg") Leg = link;
+    else if(linkName == "Torso") Torso = link;
+    else if(linkName == "Head") Head = link;
 );
 */
 
 
-// Remote linkset scanning variants, returns keys instead of linkset numbers
+
+
+////////////////////////////////////////////////////////////////////////////////////////////
+/// Remote Object Linkset scanning variants
+/// These functions return keys instead of linkset numbers
 
 // Returns a list of linkset keys from a prim name
 list ObjectLinksByName(key object, string needle) {
@@ -91,11 +99,35 @@ list ObjectLinksetList(key object, list needles) {
         conditions\
     } while(--link > 1);
 
+/* Usage:
+ObjectLinksetScan(object,
+    if(linkName == "Turret") ...
+    else if(linkName == "Barrel") ...
+);
+*/
+
+
+// Scans an object for a list of sitting avatars
+list ObjectLinksetSittingAvatars(object) {
+    list details = llGetObjectDetails(object, [OBJECT_PRIM_COUNT, OBJECT_SIT_COUNT]);
+    integer prims = llList2Integer(details, 0);
+    integer sitters = llList2Integer(details, 1);
+    
+    list agents;
+    integer index = prims + 1;
+    integer count = prims + sitters;
+    for(; index <= count; ++index) agents += llGetObjectLinkKey(object, index);
+    
+    return agents;
+}
 
 
 
 
-// "Linkset Resources" use Linkset Data to store/cache an array of linkset numbers in a compact format, typically for a bunch of reusable prims
+////////////////////////////////////////////////////////////////////////////////////////////
+/// "Linkset Resources" use Linkset Data to store/cache an array of linkset numbers in a compact format
+/// The usecase is typically for reusable prims/meshes in a linkset such as in a HUD or user interface
+/// For example for dynamically rendering markers, text or for data visualisation
 
 // Sets up a Linkset Resource on the key kv, finding prims in the linkset whose name exactly matches pattern to put into the resource
 LinksetResourceSetup(string kv, string pattern) {
