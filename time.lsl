@@ -56,4 +56,12 @@ integer Timestamp2Unix(string stamp)
     );
 }
 
-
+// Compact Check
+integer TimestampIsBefore(string a, string b)
+{
+    if((integer)llGetSubString(a, 8, 9) < (integer)llGetSubString(b, 8, 9)) return TRUE;
+    if((integer)llGetSubString(a, 11, 12) < (integer)llGetSubString(b, 11, 12)) return TRUE;
+    if((integer)llGetSubString(a, 14, 15) < (integer)llGetSubString(b, 14, 15)) return TRUE;
+    if((float)llGetSubString(a, 17, -2) < (float)llGetSubString(b, 17, -2)) return TRUE;
+    return FALSE;
+}
