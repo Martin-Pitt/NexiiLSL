@@ -18,7 +18,10 @@ Turning linkset data to be region-wide.
     * This prevents unauthorised objects from injecting data into the region
     * Each object must have the correct public/private key pair configured in the script
 * Alternatively you can replace the listener security mechanism with simpler llGetOwnerKey checks if suitable
-
+* Although the script has been upgraded to handle larger data values (where name+value meets the chat message limit of 1024 bytes),
+  it is still recommended to keep data values small for performance reasons as the logic for splitting and reassembling
+  can be costly (>200ms) due to not being able to count bytes of strings directly. Alternatively you can synchronise larger
+  values manually outside of this script if performance is critical where you have better domain specific knowledge of the data.
 */
 
 ///--- START OF CONFIGURATION ---
