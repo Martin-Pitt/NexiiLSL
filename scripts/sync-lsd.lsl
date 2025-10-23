@@ -14,23 +14,47 @@ Turning linkset data to be region-wide.
 * When data is multi-deleted, it will delete all matching values from the region
 * When the linkset is reset, it will delete all values from the region
 * The script will ignore updates that it has made itself to prevent loops (via pending)
-* The script will ignore updates that are not from the same owner as itself (per llGetOwnerKey)
+* The script will ignore updates that are not verified via RSA signatures
+    * This prevents unauthorised objects from injecting data into the region
+    * Each object must have the correct public/private key pair configured in the script
+* Alternatively you can replace the listener security mechanism with simpler llGetOwnerKey checks if suitable
 
 */
 
+///--- START OF CONFIGURATION ---
 // Change per project
-#define DATA_CHANNEL -40030025
+#define DATA_CHANNEL 123910
 
-// To avoid conflict vs local data, use a unique prefix for region-wide data
+// To avoid conflict vs local data, recommend a unique prefix for region-wide data, these are regexes
 list scope = [
-    "EXAMPLE_"
+    "^TEST_"
 ];
+
+// Generate a RSA key and add the private and public strings here
+string privateKey = "-----BEGIN RSA PRIVATE KEY-----
+generate RSA key pair and put private key here
+-----END RSA PRIVATE KEY-----";
+string publicKey = "-----BEGIN PUBLIC KEY-----
+generate RSA key pair and put public key here
+-----END PUBLIC KEY-----";
+///--- END OF CONFIGURATION ---
+
+
+#define EVENT_PING 1
+#define EVENT_PONG 2
+#define EVENT_REQUEST 3
+#define EVENT_DATA 4
+#define EVENT_DATA_FRAGMENT 5
+#define EVENT_DATA_END 6
 
 key source;
 integer sourceCreation;
 
 list pending = [/* integer action, string name */];
+list verified;
+list buffer = [/* string name, string value */];
 
+// From https://wiki.secondlife.com/wiki/Stamp2UnixInt
 integer uStamp2UnixInt(list vLstStp) { // CC0 by Void Singer
     integer vIntYear = llList2Integer(vLstStp, 0) - 1902;
     integer vIntRtn;
@@ -52,47 +76,156 @@ integer uStamp2UnixInt(list vLstStp) { // CC0 by Void Singer
     return vIntRtn;
 }
 
+// From https://wiki.secondlife.com/wiki/LlStringToBase64
+integer getStringBytes(string msg) {
+    return (llStringLength((string)llParseString2List(llStringToBase64(msg), ["="], [])) * 3) >> 2;
+}
+
+// Sends linkset data as packed chat message(s) to target or broadcast
+sendData(key target, integer action, string name, string value) {
+    integer nameLength = llStringLength(name);
+    if(action == LINKSETDATA_UPDATE)
+    {
+        integer available = 1024 - (5 + nameLength);
+        integer total = getStringBytes(value);
+        integer isASCII = (total == llStringLength(value)); // Prefer llStringLength as its fastest
+        if(total > available)
+        {
+            while(value)
+            {
+                string fragment = "";
+                integer width = 0;
+                while(total > 0) {
+                    string part = llGetSubString(value, 0, 250);
+                    integer bytes;
+                    if(isASCII) bytes = llStringLength(part);
+                    else bytes = getStringBytes(part);
+                    
+                    if(width + bytes <= available)
+                    {
+                        value = llDeleteSubString(value, 0, 250);
+                        width += bytes;
+                        total -= bytes;
+                        fragment += part;
+                    }
+                    else jump breakFragment;
+                }
+                @breakFragment;
+                
+                integer eventType = EVENT_DATA_FRAGMENT;
+                if(value == "") eventType = EVENT_DATA_END;
+                
+                string message = llChar(eventType) + llChar(nameLength) + name + fragment;
+                if(target) llRegionSayTo(target, DATA_CHANNEL, message);
+                else llRegionSay(DATA_CHANNEL, message);
+            }
+        }
+        else
+        {
+            string message = llChar(EVENT_DATA) + llChar(action + 1) + llChar(nameLength) + name + value;
+            if(target) llRegionSayTo(target, DATA_CHANNEL, message);
+            else llRegionSay(DATA_CHANNEL, message);
+        }
+    }
+    
+    else
+    {
+        string message = llChar(EVENT_DATA) + llChar(action + 1) + llChar(nameLength) + name + value;
+        if(target) llRegionSayTo(target, DATA_CHANNEL, message);
+        else llRegionSay(DATA_CHANNEL, message);
+    }
+}
 
 default
 {
     state_entry()
     {
         llListen(DATA_CHANNEL, "", "", "");
-        llRegionSay(DATA_CHANNEL, llList2Json(JSON_OBJECT, ["event", "ping"]));
+        llRegionSay(DATA_CHANNEL,
+            llChar(EVENT_PING) +
+            llSignRSA(privateKey, (string)llGetKey() + " " + llGetDate(), "sha512")
+        );
+    }
+    
+    on_rez(integer param)
+    {
+        llRegionSay(DATA_CHANNEL,
+            llChar(EVENT_PING) +
+            llSignRSA(privateKey, (string)llGetKey() + " " + llGetDate(), "sha512")
+        );
     }
     
     listen(integer channel, string name, key identifier, string message)
     {
-        if(llGetOwnerKey(identifier) != llGetOwner()) return;
-        string eventName = llJsonGetValue(message, ["event"]);
+        integer eventType = llOrd(message, 0);
         
-        if(eventName == "data")
+        if(eventType == EVENT_PING || eventType == EVENT_PONG)
         {
-            integer action = (integer)llJsonGetValue(message, ["action"]);
-            string dataName = llJsonGetValue(message, ["name"]);
-            string dataValue = llJsonGetValue(message, ["value"]);
+            string signature = llGetSubString(message, 1, -1);
+            string expected = (string)identifier + " " + llGetDate();
+            if(!llVerifyRSA(publicKey, expected, signature, "sha512")) return;
+            
+            integer iterator = llGetListLength(verified);
+            while(iterator)
+            {
+                if(llKey2Name(llList2Key(verified, iterator)) == "")
+                    verified = llDeleteSubList(verified, iterator, iterator);
+            }
+            verified += identifier;
+            
+            if(eventType == EVENT_PING)
+            {
+                llRegionSayTo(identifier, DATA_CHANNEL,
+                    llChar(EVENT_PONG) +
+                    llSignRSA(privateKey, (string)llGetKey() + " " + llGetDate(), "sha512")
+                );
+            }
+            
+            else if(eventType == EVENT_PONG)
+            {
+                llSetTimerEvent(FALSE);
+                llSetTimerEvent(0.5);
+                
+                integer creation = uStamp2UnixInt(llParseString2List(llList2String(llGetObjectDetails(identifier, [OBJECT_CREATION_TIME]), 0), ["-", "T", ":", "."], []));
+                if(creation < sourceCreation || source == "")
+                {
+                    source = identifier;
+                    sourceCreation = creation;
+                }
+            }
+        }
+        
+        else if(llListFindList(verified, [identifier]) == -1) return;
+        
+        
+        if(eventType == EVENT_DATA)
+        {
+            integer action = llOrd(message, 1) - 1;
+            integer nameLength = llOrd(message, 2);
+            string name = llGetSubString(message, 3, 2 + nameLength);
+            string value = llGetSubString(message, 3 + nameLength, -1);
             
             if(action == LINKSETDATA_UPDATE)
             {
-                pending += [action, dataName];
-                llLinksetDataWrite(dataName, dataValue);
+                pending += [action, name];
+                llLinksetDataWrite(name, value);
             }
             
             else if(action == LINKSETDATA_DELETE)
             {
-                pending += [action, dataName];
-                llLinksetDataDelete(dataName);
+                pending += [action, name];
+                llLinksetDataDelete(name);
             }
             
             else if(action == LINKSETDATA_MULTIDELETE)
             {
-                list names = llJson2List(dataName);
+                list names = llJson2List(name);
                 integer iterator = llGetListLength(names);
                 while(iterator --> 0)
                 {
-                    dataName = llList2String(names, iterator);
-                    pending += [action, dataName];
-                    llLinksetDataDelete(dataName);
+                    name = llList2String(names, iterator);
+                    pending += [action, name];
+                    llLinksetDataDelete(name);
                 }
             }
             
@@ -103,25 +236,31 @@ default
             }
         }
         
-        else if(eventName == "ping")
+        else if(eventType == EVENT_DATA_FRAGMENT || eventType == EVENT_DATA_END)
         {
-            llRegionSayTo(identifier, DATA_CHANNEL, llList2Json(JSON_OBJECT, ["event", "pong"]));
-        }
-        
-        else if(eventName == "pong")
-        {
-            llSetTimerEvent(FALSE);
-            llSetTimerEvent(0.5);
+            integer nameLength = llOrd(message, 1);
+            string name = llGetSubString(message, 2, 1 + nameLength);
+            string value = llGetSubString(message, 2 + nameLength, -1);
             
-            integer creation = uStamp2UnixInt(llParseString2List(llList2String(llGetObjectDetails(identifier, [OBJECT_CREATION_TIME]), 0), ["-", "T", ":", "."], []));
-            if(creation < sourceCreation || source == "")
+            integer pointer = llListFindStrided(buffer, [name], 0, -1, 2);
+            if(eventType == EVENT_DATA_FRAGMENT)
             {
-                source = identifier;
-                sourceCreation = creation;
+                string prev = llList2String(buffer, pointer + 1);
+                buffer = llListReplaceList(buffer, [prev + value], pointer + 1, pointer + 1);
+            }
+            
+            else // if(eventType == EVENT_DATA_END)
+            {
+                string prev = llList2String(buffer, pointer + 1);
+                buffer = llDeleteSubList(buffer, pointer, pointer + 1);
+                value = prev + value;
+                
+                pending += [LINKSETDATA_UPDATE, name];
+                llLinksetDataWrite(name, value);
             }
         }
         
-        else if(eventName == "request")
+        else if(eventType == EVENT_REQUEST)
         {
             integer sent = 0;
             integer iterator = llGetListLength(scope);
@@ -134,13 +273,7 @@ default
                 {
                     string name = llList2String(names, nameIterator);
                     string value = llLinksetDataRead(name);
-                    llRegionSayTo(identifier, DATA_CHANNEL, llList2Json(JSON_OBJECT, [
-                        "event", "data",
-                        "action", LINKSETDATA_UPDATE,
-                        "name", name,
-                        "value", value
-                    ]));
-                    
+                    sendData(identifier, LINKSETDATA_UPDATE, name, value);
                     if((++sent % 16) == 0) llSleep(4/45.); // Avoid flooding
                 }
             }
@@ -169,12 +302,7 @@ default
             }
         }
         
-        llRegionSay(DATA_CHANNEL, llList2Json(JSON_OBJECT, [
-            "event", "data",
-            "action", action,
-            "name", name,
-            "value", value
-        ]));
+        sendData(NULL_KEY, action, name, value);
     }
     
     timer()
@@ -190,6 +318,6 @@ default
             llLinksetDataDeleteFound(pattern, "");
         }
         
-        llRegionSayTo(source, DATA_CHANNEL, llList2Json(JSON_OBJECT, ["event", "request"]));
+        llRegionSayTo(source, DATA_CHANNEL, llChar(EVENT_REQUEST));
     }
 }
