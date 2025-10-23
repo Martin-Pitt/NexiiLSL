@@ -12,6 +12,22 @@ default
     state_entry()
     {
         //////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// Compact unsigned integer (0 to UTF8_4B_MAX-1)
+        // Can save a byte or two but importantly provides array-like access
+        {
+            integer input = 0x10FFFF - 1;
+            
+            string compressed = llChar(1 + input);
+            
+            integer output = llOrd(compressed, 0) - 1;
+            
+            llOwnerSay(
+                "Compact int: " + (string)input + " => " + compressed + " => " + (string)output + "\n" +
+                "Compression " + (string)stringBytes((string)input) + "b => " + (string)stringBytes(compressed) + "b"
+            );
+        }
+        
+        //////////////////////////////////////////////////////////////////////////////////////////////////////
         /// Compact unsigned float
         {
             #define MAXIMUM 2048.0
