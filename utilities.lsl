@@ -27,6 +27,13 @@ integer stringBytes(string str) {
     return bytes;
 }
 
+// Significantly faster
+// From https://wiki.secondlife.com/wiki/LlStringToBase64
+integer getStringBytes(string msg) {
+    return (llStringLength((string)llParseString2List(llStringToBase64(msg), ["="], [])) * 3) >> 2;
+}
+
+
 // From https://wiki.secondlife.com/wiki/Efficient_Hex
 string bits2nybbles(integer bits) {
     integer lsn; // least significant nybble
