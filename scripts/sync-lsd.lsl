@@ -139,10 +139,21 @@ sendData(key target, integer action, string name, string value) {
     }
 }
 
+integer inScope(string name) {
+    integer iterator = llGetListLength(scope);
+    while(iterator --> 0)
+    {
+        string prefix = llList2String(scope, iterator);
+        if(llSubStringIndex(name, prefix) == 0) return TRUE;
+    }
+    return FALSE;
+}
+
 default
 {
     state_entry()
     {
+        sourceCreation = uStamp2UnixInt(llParseString2List(llList2String(llGetObjectDetails(llGetKey(), [OBJECT_CREATION_TIME]), 0), ["-", "T", ":", "."], []));
         llListen(DATA_CHANNEL, "", "", "");
         llRegionSay(DATA_CHANNEL,
             llChar(EVENT_PING) +
@@ -150,13 +161,7 @@ default
         );
     }
     
-    on_rez(integer param)
-    {
-        llRegionSay(DATA_CHANNEL,
-            llChar(EVENT_PING) +
-            llSignRSA(privateKey, (string)llGetKey() + " " + llGetDate(), "sha512")
-        );
-    }
+    on_rez(integer param) { llResetScript(); }
     
     listen(integer channel, string name, key identifier, string message)
     {
@@ -210,12 +215,14 @@ default
             
             if(action == LINKSETDATA_UPDATE)
             {
+                if(!inScope(name)) return;
                 pending += [action, name];
                 llLinksetDataWrite(name, value);
             }
             
             else if(action == LINKSETDATA_DELETE)
             {
+                if(!inScope(name)) return;
                 pending += [action, name];
                 llLinksetDataDelete(name);
             }
@@ -227,8 +234,11 @@ default
                 while(iterator --> 0)
                 {
                     name = llList2String(names, iterator);
-                    pending += [action, name];
-                    llLinksetDataDelete(name);
+                    if(inScope(name))
+                    {
+                        pending += [action, name];
+                        llLinksetDataDelete(name);
+                    }
                 }
             }
             
@@ -243,6 +253,7 @@ default
         {
             integer nameLength = llOrd(message, 1);
             string name = llGetSubString(message, 2, 1 + nameLength);
+            if(!inScope(name)) return;
             string value = llGetSubString(message, 2 + nameLength, -1);
             
             integer pointer = llListFindStrided(buffer, [name], 0, -1, 2);
@@ -265,19 +276,39 @@ default
         
         else if(eventType == EVENT_REQUEST)
         {
+            list requestScopes;
+            integer requestIterator;
+            integer requestTotal;
+            if(llStringLength(message) > 1)
+            {
+                requestScopes = llParseString2List(llGetSubString(message, 1, -1), [llChar(1)], []);
+                requestTotal = llGetListLength(requestScopes);
+            }
+            
             integer sent = 0;
             integer iterator = llGetListLength(scope);
             while(iterator --> 0)
             {
-                string pattern = llList2String(scope, iterator);
+                string pattern = "^" + llList2String(scope, iterator);
                 list names = llLinksetDataFindKeys(pattern, 0, FALSE);
                 integer nameIterator = llGetListLength(names);
                 while(nameIterator --> 0)
                 {
                     string name = llList2String(names, nameIterator);
+                    if(requestTotal)
+                    {
+                        for(requestIterator = 0; requestIterator < requestTotal; ++requestIterator)
+                        {
+                            string requestScope = llList2String(requestScopes, requestIterator);
+                            if(llSubStringIndex(name, requestScope) == 0) jump valid;
+                        }
+                        jump skip;
+                    }
+                    @valid;
                     string value = llLinksetDataRead(name);
                     sendData(identifier, LINKSETDATA_UPDATE, name, value);
                     if((++sent % 16) == 0) llSleep(4/45.); // Avoid flooding
+                    @skip;
                 }
             }
         }
@@ -305,7 +336,44 @@ default
             }
         }
         
-        sendData(NULL_KEY, action, name, value);
+        if(action == LINKSETDATA_UPDATE || action == LINKSETDATA_DELETE)
+        {
+            if(!inScope(name)) return;
+            
+            integer iterator = llGetListLength(scope);
+            while(iterator --> 0)
+            {
+                string prefix = llList2String(scope, iterator);
+                if(llSubStringIndex(name, prefix) == 0)
+                    return sendData(NULL_KEY, action, name, value);
+            }
+        }
+        
+        else if(action == LINKSETDATA_RESET)
+        {
+            sendData(NULL_KEY, action, name, value);
+        }
+        
+        else if(action == LINKSETDATA_MULTIDELETE)
+        {
+            list deleted = llParseString2List(name, [","], []);
+            list known;
+            integer total = llGetListLength(scope);
+            do {
+                name = llList2String(deleted, 0);
+                deleted = llDeleteSubList(deleted, 0, 0);
+                
+                integer iterator = total;
+                while(iterator --> 0)
+                {
+                    string prefix = llList2String(scope, iterator);
+                    if(llSubStringIndex(name, prefix) == 0) known += name;
+                }
+            } while(deleted);
+            
+            name = llDumpList2String(known, ",");
+            if(known) sendData(NULL_KEY, action, name, value);
+        }
     }
     
     timer()
@@ -317,8 +385,8 @@ default
         while(iterator --> 0)
         {
             string pattern = llList2String(scope, iterator);
-            pending += [LINKSETDATA_MULTIDELETE, pattern];
-            llLinksetDataDeleteFound(pattern, "");
+            list results = llLinksetDataDeleteFound(pattern, "");
+            if(llList2Integer(results, 0) > 0) pending += [LINKSETDATA_MULTIDELETE, pattern];
         }
         
         llRegionSayTo(source, DATA_CHANNEL, llChar(EVENT_REQUEST));
