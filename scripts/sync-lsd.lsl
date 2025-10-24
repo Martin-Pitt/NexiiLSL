@@ -169,7 +169,7 @@ default
             if(!llVerifyRSA(publicKey, expected, signature, "sha512")) return;
             
             integer iterator = llGetListLength(verified);
-            while(iterator)
+            while(iterator --> 0)
             {
                 if(llKey2Name(llList2Key(verified, iterator)) == "")
                     verified = llDeleteSubList(verified, iterator, iterator);
