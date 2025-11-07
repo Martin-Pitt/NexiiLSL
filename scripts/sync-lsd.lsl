@@ -28,9 +28,9 @@ Turning linkset data to be region-wide.
 // Change per project
 #define DATA_CHANNEL 123910
 
-// To avoid conflict vs local data, recommend a unique prefix for region-wide data, these are regexes
+// To avoid conflict vs local data, recommend a unique prefix for region-wide data, these are prefixes
 list scope = [
-    "^TEST_"
+    "TEST_"
 ];
 
 // Generate a RSA key and add the private and public strings here
