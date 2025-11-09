@@ -3,32 +3,13 @@ Synchronised Linkset Data
 -------------------------
 This script helps synchronise linkset data across objects in a region.
 Turning linkset data to be region-wide.
-
-* On initialisation, the script will try to read existing data from the region
-    * Otherwise it will act as the initial source of data for the region
-    * The source of truth is always the object that has survived the longest (OBJECT_CREATION_TIME)
-    * Will delete local data first that matches the scope to avoid stale data
-* Only data names that match the scope will be synchronised
-* When data is updated, it will write the new value to the region
-* When data is deleted, it will delete the value from the region
-* When data is multi-deleted, it will delete all matching values from the region
-* When the linkset is reset, it will delete all values from the region
-* The script will ignore updates that it has made itself to prevent loops (via pending)
-* The script will ignore updates that are not verified via RSA signatures
-    * This prevents unauthorised objects from injecting data into the region
-    * Each object must have the correct public/private key pair configured in the script
-* Alternatively you can replace the listener security mechanism with simpler llGetOwnerKey checks if suitable
-* Although the script has been upgraded to handle larger data values (where name+value meets the chat message limit of 1024 bytes),
-  it is still recommended to keep data values small for performance reasons as the logic for splitting and reassembling
-  can be costly (>200ms) due to not being able to count bytes of strings directly. Alternatively you can synchronise larger
-  values manually outside of this script if performance is critical where you have better domain specific knowledge of the data.
 */
 
 ///--- START OF CONFIGURATION ---
 // Change per project
 #define DATA_CHANNEL 123910
 
-// To avoid conflict vs local data, recommend a unique prefix for region-wide data, these are prefixes
+// To avoid conflict vs local data, recommend a unique prefix for region-wide data, these are string prefixes
 list scope = [
     "TEST_"
 ];
@@ -49,9 +30,11 @@ generate RSA key pair and put public key here
 #define EVENT_DATA 4
 #define EVENT_DATA_FRAGMENT 5
 #define EVENT_DATA_END 6
+#define EVENT_REQUEST_COMPLETE 7
 
-key source;
-integer sourceCreation;
+// Source of truth is per the oldest, and widest, scope prefix
+// UUID may have duplicates if an object had multiple scope entries
+list sourceCandidates = [/* key object, timestamp rezzed, string scope */];
 
 list pending = [/* integer action, string name */];
 list verified;
@@ -153,12 +136,22 @@ default
 {
     state_entry()
     {
-        sourceCreation = uStamp2UnixInt(llParseString2List(llList2String(llGetObjectDetails(llGetKey(), [OBJECT_CREATION_TIME]), 0), ["-", "T", ":", "."], []));
+        // Start ourselves as a candidate
+        integer iterator = llGetListLength(scope);
+        while(iterator --> 0) sourceCandidates = [
+            llGetKey(),
+            uStamp2UnixInt(llParseString2List(llList2String(llGetObjectDetails(llGetKey(), [OBJECT_REZ_TIME]), 0), ["-", "T", ":", "."], [])),
+            llList2String(scope, iterator)
+        ];
+        
         llListen(DATA_CHANNEL, "", "", "");
+        string signature = llSignRSA(privateKey, (string)llGetKey() + " " + llGetDate(), "sha512");
         llRegionSay(DATA_CHANNEL,
             llChar(EVENT_PING) +
-            llSignRSA(privateKey, (string)llGetKey() + " " + llGetDate(), "sha512")
+            llChar(llStringLength(signature)) +
+            signature
         );
+        llSetTimerEvent(0.5);
     }
     
     on_rez(integer param) { llResetScript(); }
@@ -169,7 +162,8 @@ default
         
         if(eventType == EVENT_PING || eventType == EVENT_PONG)
         {
-            string signature = llGetSubString(message, 1, -1);
+            integer signatureLength = llOrd(message, 1);
+            string signature = llGetSubString(message, 2, 1 + signatureLength);
             string expected = (string)identifier + " " + llGetDate();
             if(!llVerifyRSA(publicKey, expected, signature, "sha512")) return;
             
@@ -183,23 +177,97 @@ default
             
             if(eventType == EVENT_PING)
             {
+                signature = llSignRSA(privateKey, (string)llGetKey() + " " + llGetDate(), "sha512");
+                signatureLength = llStringLength(signature);
+                
                 llRegionSayTo(identifier, DATA_CHANNEL,
                     llChar(EVENT_PONG) +
-                    llSignRSA(privateKey, (string)llGetKey() + " " + llGetDate(), "sha512")
+                    llChar(signatureLength) +
+                    signature +
+                    llDumpList2String(scope, llChar(1))
                 );
             }
             
             else if(eventType == EVENT_PONG)
             {
                 llSetTimerEvent(FALSE);
-                llSetTimerEvent(0.5);
                 
-                integer creation = uStamp2UnixInt(llParseString2List(llList2String(llGetObjectDetails(identifier, [OBJECT_CREATION_TIME]), 0), ["-", "T", ":", "."], []));
-                if(creation < sourceCreation || source == "")
+                // This section was AI'd and then bugfixed, sue me. My brain was hurting from trying to figure out the logic on the complexity of sorting out
+                // multiple sources of truth based on scope and rez times. Like wtf is this https://i.gyazo.com/d4449e0348354c61b2ee6e3c9ee65e17.png
+                list peerScope = llParseString2List(llGetSubString(message, 2 + signatureLength, -1), [llChar(1)], []);
+                integer peerTimestamp = uStamp2UnixInt(llParseString2List(llList2String(llGetObjectDetails(identifier, [OBJECT_REZ_TIME]), 0), ["-", "T", ":", "."], []));
+                
+                integer peerScopeLen = llGetListLength(peerScope);
+                integer ourScopeLen = llGetListLength(scope);
+                
+                integer peerIter = peerScopeLen;
+                while(peerIter --> 0)
                 {
-                    source = identifier;
-                    sourceCreation = creation;
+                    string peerPrefix = llList2String(peerScope, peerIter);
+                    
+                    integer ourIter = ourScopeLen;
+                    while(ourIter --> 0)
+                    {
+                        string ourPrefix = llList2String(scope, ourIter);
+                        
+                        // Check if prefixes overlap
+                        if(llSubStringIndex(peerPrefix, ourPrefix) == 0 || llSubStringIndex(ourPrefix, peerPrefix) == 0)
+                        {
+                            // Check if this peer is older than existing candidates with overlapping scope
+                            integer addCandidate = TRUE;
+                            integer candIter = llGetListLength(sourceCandidates);
+                            list toRemove = [];
+                            
+                            while(candIter > 0)
+                            {
+                                candIter -= 3;
+                                key candKey = llList2Key(sourceCandidates, candIter);
+                                integer candTime = llList2Integer(sourceCandidates, candIter + 1);
+                                string candPrefix = llList2String(sourceCandidates, candIter + 2);
+                                
+                                // Check if this candidate has overlapping scope
+                                if(llSubStringIndex(candPrefix, peerPrefix) == 0 || llSubStringIndex(peerPrefix, candPrefix) == 0)
+                                {
+                                    integer peerPrefixLen = llStringLength(peerPrefix);
+                                    integer candPrefixLen = llStringLength(candPrefix);
+                                    
+                                    // Peer is older - only remove candidate if peer's scope is wider or equal
+                                    if(peerTimestamp < candTime && peerPrefixLen <= candPrefixLen) toRemove += [candIter];
+                                    
+                                    // Peer is newer - only reject it if candidate's scope is wider or equal
+                                    else if(peerTimestamp > candTime && candPrefixLen <= peerPrefixLen) addCandidate = FALSE;
+                                    
+                                    // Same object, same timestamp, same scope - already exists
+                                    else if(identifier == candKey && candPrefix == peerPrefix) addCandidate = FALSE;
+                                }
+                            }
+                            
+                            // Remove newer candidates with narrower or equal scope (iterate backwards)
+                            integer removeIter = llGetListLength(toRemove);
+                            if(removeIter) toRemove = llListSort(toRemove, 1, TRUE);
+                            while(removeIter --> 0)
+                            {
+                                integer idx = llList2Integer(toRemove, removeIter);
+                                sourceCandidates = llDeleteSubList(sourceCandidates, idx, idx + 2);
+                            }
+                            
+                            // Add this peer as a candidate if it passed all checks
+                            if(addCandidate)
+                            {
+                                sourceCandidates += [identifier, peerTimestamp, peerPrefix];
+                                
+                                // Sort candidates by timestamp (oldest first)
+                                sourceCandidates = llListSortStrided(sourceCandidates, 3, 1, TRUE);
+                            }
+                            
+                            // Break out of ourScope loop since we did consider this peer
+                            jump breakOurScope;
+                        }
+                    }
+                    @breakOurScope;
                 }
+                
+                llSetTimerEvent(0.5);
             }
         }
         
@@ -311,6 +379,22 @@ default
                     @skip;
                 }
             }
+            
+            llRegionSayTo(identifier, DATA_CHANNEL, llChar(EVENT_REQUEST_COMPLETE));
+        }
+        
+        else if(eventType == EVENT_REQUEST_COMPLETE)
+        {
+            @retryComplete;
+            if(sourceCandidates)
+            {
+                key peer = llList2Key(sourceCandidates, 0);
+                string peerScope = llList2String(sourceCandidates, 2);
+                sourceCandidates = llDeleteSubList(sourceCandidates, 0, 2);
+                if(peer == llGetKey()) jump retryComplete;
+                llRegionSayTo(peer, DATA_CHANNEL, llChar(EVENT_REQUEST) + peerScope);
+                // TODO: Peer may be actually listed multiple times, if so: merge all prefixes of same peer and dump as llDumpList2String(peerScope, llChar(1))
+            }
         }
     }
     
@@ -380,15 +464,44 @@ default
     {
         llSetTimerEvent(FALSE);
         
-        // Clear our local data, we are going to re-request everything from the source
-        integer iterator = llGetListLength(scope);
-        while(iterator --> 0)
+        /*
+        string message = "Final candidates:\n";
+        integer iterator;
+        integer total = llGetListLength(sourceCandidates);
+        for(; iterator < total; iterator += 3)
         {
-            string pattern = llList2String(scope, iterator);
-            list results = llLinksetDataDeleteFound(pattern, "");
-            if(llList2Integer(results, 0) > 0) pending += [LINKSETDATA_MULTIDELETE, pattern];
+            key object = llList2Key(sourceCandidates, iterator);
+            integer timestamp = llList2Integer(sourceCandidates, iterator + 1);
+            string scope = llList2String(sourceCandidates, iterator + 2);
+            message += "* secondlife:///app/objectim/" + string(object) + "?name=" + llEscapeURL(llKey2Name(object)) + "&owner=" + (string)llGetOwnerKey(object) + " " + (string)timestamp + " " + scope + "\n";
+        }
+        llOwnerSay(message);
+        */
+        
+        // Clear our local data, we are going to re-request everything from the source of truth(s)
+        integer index;
+        integer count = llGetListLength(sourceCandidates);
+        for(; index < count; index += 3)
+        {
+            key peer = llList2Key(sourceCandidates, 0);
+            string peerScope = llList2String(sourceCandidates, 2);
+            if(peer != llGetKey()) 
+            {
+                string pattern = "^" + peerScope;
+                list results = llLinksetDataDeleteFound(pattern, "");
+                if(llList2Integer(results, 0) > 0) pending += [LINKSETDATA_MULTIDELETE, pattern];
+            }
         }
         
-        llRegionSayTo(source, DATA_CHANNEL, llChar(EVENT_REQUEST));
+        @retrySource;
+        if(sourceCandidates)
+        {
+            key peer = llList2Key(sourceCandidates, 0);
+            string peerScope = llList2String(sourceCandidates, 2);
+            sourceCandidates = llDeleteSubList(sourceCandidates, 0, 2);
+            if(peer == llGetKey()) jump retrySource;
+            llRegionSayTo(peer, DATA_CHANNEL, llChar(EVENT_REQUEST) + peerScope);
+        }
     }
 }
+
