@@ -107,21 +107,13 @@ sendData(key target, integer action, string name, string value) {
                 if(target) llRegionSayTo(target, DATA_CHANNEL, message);
                 else llRegionSay(DATA_CHANNEL, message);
             }
-        }
-        else
-        {
-            string message = llChar(EVENT_DATA) + llChar(action + 1) + llChar(nameLength) + name + value;
-            if(target) llRegionSayTo(target, DATA_CHANNEL, message);
-            else llRegionSay(DATA_CHANNEL, message);
+            return;
         }
     }
     
-    else
-    {
-        string message = llChar(EVENT_DATA) + llChar(action + 1) + llChar(nameLength) + name + value;
-        if(target) llRegionSayTo(target, DATA_CHANNEL, message);
-        else llRegionSay(DATA_CHANNEL, message);
-    }
+    string message = llChar(EVENT_DATA) + llChar(action + 1) + llChar(nameLength) + name + value;
+    if(target) llRegionSayTo(target, DATA_CHANNEL, message);
+    else llRegionSay(DATA_CHANNEL, message);
 }
 
 integer inScope(string name) {
