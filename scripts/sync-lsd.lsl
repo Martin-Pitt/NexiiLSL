@@ -11,7 +11,9 @@ Turning linkset data to be region-wide.
 
 // To avoid conflict vs local data, recommend a unique prefix for region-wide data, these are string prefixes
 list scope = [
-    "TEST_"
+    "TEST_",
+    "Foo_",
+    "Bar_"
 ];
 
 // Generate a RSA key and add the private and public strings here
@@ -136,14 +138,6 @@ default
 {
     state_entry()
     {
-        // Start ourselves as a candidate
-        integer iterator = llGetListLength(scope);
-        while(iterator --> 0) sourceCandidates = [
-            llGetKey(),
-            uStamp2UnixInt(llParseString2List(llList2String(llGetObjectDetails(llGetKey(), [OBJECT_REZ_TIME]), 0), ["-", "T", ":", "."], [])),
-            llList2String(scope, iterator)
-        ];
-        
         llListen(DATA_CHANNEL, "", "", "");
         string signature = llSignRSA(privateKey, (string)llGetKey() + " " + llGetDate(), "sha512");
         llRegionSay(DATA_CHANNEL,
@@ -464,20 +458,6 @@ default
     {
         llSetTimerEvent(FALSE);
         
-        /*
-        string message = "Final candidates:\n";
-        integer iterator;
-        integer total = llGetListLength(sourceCandidates);
-        for(; iterator < total; iterator += 3)
-        {
-            key object = llList2Key(sourceCandidates, iterator);
-            integer timestamp = llList2Integer(sourceCandidates, iterator + 1);
-            string scope = llList2String(sourceCandidates, iterator + 2);
-            message += "* secondlife:///app/objectim/" + string(object) + "?name=" + llEscapeURL(llKey2Name(object)) + "&owner=" + (string)llGetOwnerKey(object) + " " + (string)timestamp + " " + scope + "\n";
-        }
-        llOwnerSay(message);
-        */
-        
         // Clear our local data, we are going to re-request everything from the source of truth(s)
         integer index;
         integer count = llGetListLength(sourceCandidates);
@@ -492,6 +472,10 @@ default
                 if(llList2Integer(results, 0) > 0) pending += [LINKSETDATA_MULTIDELETE, pattern];
             }
         }
+        
+        // Reverse sort by newest first; We want to request everything from our source of truths
+        // but in an order where older sources will overwrite data / be trusted more
+        sourceCandidates = llListSortStrided(sourceCandidates, 3, 1, FALSE);
         
         @retrySource;
         if(sourceCandidates)
