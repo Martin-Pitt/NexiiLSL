@@ -1,334 +1,537 @@
 /*
-Synchronised Linkset Data
--------------------------
-This script helps synchronise linkset data across objects in a region.
-Turning linkset data to be region-wide.
+    Synchronised Linkset Data
+    
+    This script synchronises specific linkset data keys across the region that match a prefix, per the config.
+    
+    On initialisation, rezzing or changing region it does a full reset/synchronisation with the full
+    tracked dataset (per scopes) of the network and then simply listens for changes as they propagate across the region.
+    
+    Each object can be configured to only sync specific prefixes to optimise bandwidth and processing.
+    
+    If you want to persist data across reboots (e.g. if syncing data across temp attach / intermittent objects),
+    make sure to establish a permanent server object that holds data.
 */
 
-///--- START OF CONFIGURATION ---
-// Change per project
-#define DATA_CHANNEL 123910
+// SETTINGS BELOW CAN BE CUSTOMISED PER PROJECT ////////////////////////////////////////////////////
 
-// To avoid conflict vs local data, recommend a unique prefix for region-wide data, these are string prefixes
-list scope = [
-    "TEST_",
+/// Security
+// We use RSA signatures to verify secure communications
+string privateKey = "-----REPLACE WITH RSA PRIVATE KEY-----";
+string publicKey = "-----REPLACE WITH RSA PUBLIC KEY-----";
+
+/// Scope prefixes of linkset data keys to synchronise
+list scopes = [
+    "Test_",
     "Foo_",
     "Bar_"
 ];
+// Corresponding listener channels for each scope above
+list scopeChannels = [
+    204505,
+    204506,
+    204507
+];
 
-// Generate a RSA key and add the private and public strings here
-string privateKey = "-----BEGIN RSA PRIVATE KEY-----
-generate RSA key pair and put private key here
------END RSA PRIVATE KEY-----";
-string publicKey = "-----BEGIN PUBLIC KEY-----
-generate RSA key pair and put public key here
------END PUBLIC KEY-----";
-///--- END OF CONFIGURATION ---
+// SETTINGS ABOVE CAN BE CUSTOMISED PER PROJECT ////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Link Message Numbers
+#define MESSAGE_SYNC_BOOT 1
+#define MESSAGE_SYNC_READY 2
+
+// Event Types Enumeration
+#define EVENT_TYPE 63
 #define EVENT_PING 1
 #define EVENT_PONG 2
-#define EVENT_REQUEST 3
-#define EVENT_DATA 4
-#define EVENT_DATA_FRAGMENT 5
-#define EVENT_DATA_END 6
-#define EVENT_REQUEST_COMPLETE 7
+#define EVENT_SYNC_REQUEST 3
+#define EVENT_SYNC_RESPONSE 4
+#define EVENT_SYNC_COMPLETE 5
+#define EVENT_DATA 6
+#define EVENT_MESSAGE 7
+// Event Bit flags
+#define EVENT_FRAGMENT 64
+#define EVENT_FINAL_FRAGMENT 128
 
-// Source of truth is per the oldest, and widest, scope prefix
-// UUID may have duplicates if an object had multiple scope entries
-list sourceCandidates = [/* key object, timestamp rezzed, string scope */];
 
+list candidates = [/* key object, string scope */];
 list pending = [/* integer action, string name */];
-list verified;
+list verified = [/* key object */];
 list buffer = [/* string name, string value */];
 
-// From https://wiki.secondlife.com/wiki/Stamp2UnixInt
-integer uStamp2UnixInt(list vLstStp) { // CC0 by Void Singer
-    integer vIntYear = llList2Integer(vLstStp, 0) - 1902;
-    integer vIntRtn;
-    if (vIntYear >> 31 | vIntYear / 136)
-    {
-        vIntRtn = 2145916800 * (1 | vIntYear >> 31);
-    }
-    else
-    {
-        integer vIntMnth = ~-llList2Integer(vLstStp, 1);
-        vIntRtn = 86400 * ((integer)(vIntYear * 365.25 + 0.25) - 24837 +
-          vIntMnth * 30 + (vIntMnth - (vIntMnth < 7) >> 1) + (vIntMnth < 2) -
-          (((vIntYear + 2) & 3) > 0) * (vIntMnth > 1) +
-          (~-llList2Integer(vLstStp, 2)) ) +
-          llList2Integer(vLstStp, 3) * 3600 +
-          llList2Integer(vLstStp, 4) * 60 +
-          llList2Integer(vLstStp, 5);
-    }
-    return vIntRtn;
-}
-
-// From https://wiki.secondlife.com/wiki/LlStringToBase64
-integer getStringBytes(string msg) {
-    return (llStringLength((string)llParseString2List(llStringToBase64(msg), ["="], [])) * 3) >> 2;
-}
-
-// Sends linkset data as packed chat message(s) to target or broadcast
-sendData(key target, integer action, string name, string value) {
-    integer nameLength = llStringLength(name);
-    if(action == LINKSETDATA_UPDATE)
-    {
-        integer available = 1024 - (5 + nameLength);
-        integer total = getStringBytes(value);
-        integer isASCII = (total == llStringLength(value)); // Prefer llStringLength as its fastest
-        if(total > available)
-        {
-            while(value)
-            {
-                string fragment = "";
-                integer width = 0;
-                while(total > 0) {
-                    string part = llGetSubString(value, 0, 250);
-                    integer bytes;
-                    if(isASCII) bytes = llStringLength(part);
-                    else bytes = getStringBytes(part);
-                    
-                    if(width + bytes <= available)
-                    {
-                        value = llDeleteSubString(value, 0, 250);
-                        width += bytes;
-                        total -= bytes;
-                        fragment += part;
-                    }
-                    else jump breakFragment;
-                }
-                @breakFragment;
-                
-                integer eventType = EVENT_DATA_FRAGMENT;
-                if(value == "") eventType = EVENT_DATA_END;
-                
-                string message = llChar(eventType) + llChar(nameLength) + name + fragment;
-                if(target) llRegionSayTo(target, DATA_CHANNEL, message);
-                else llRegionSay(DATA_CHANNEL, message);
-            }
-            return;
-        }
-    }
-    
-    string message = llChar(EVENT_DATA) + llChar(action + 1) + llChar(nameLength) + name + value;
-    if(target) llRegionSayTo(target, DATA_CHANNEL, message);
-    else llRegionSay(DATA_CHANNEL, message);
-}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 integer inScope(string name) {
-    integer iterator = llGetListLength(scope);
+    integer iterator = llGetListLength(scopes);
     while(iterator --> 0)
     {
-        string prefix = llList2String(scope, iterator);
+        string prefix = llList2String(scopes, iterator);
         if(llSubStringIndex(name, prefix) == 0) return TRUE;
     }
     return FALSE;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// From https://wiki.secondlife.com/wiki/LlStringToBase64
+integer getStringBytes(string msg) {
+    return (llStringLength((string)llParseString2List(llStringToBase64(msg), ["="], [])) * 3) >> 2;
+}
+
+sendData(key target, integer channel, integer eventType, string name, string value) {
+    integer nameLength = llStringLength(name);
+    integer available = 1023 - (3 + nameLength);
+    integer total = getStringBytes(value);
+    integer isASCII = (total == llStringLength(value)); // Prefer llStringLength as its fastest
+    
+    // Fragment the update across multiple messages
+    if(total > available)
+    {
+        eventType = eventType | EVENT_FRAGMENT;
+        while(value)
+        {
+            string fragment = "";
+            integer width = 0;
+            while(total > 0)
+            {
+                string part = llGetSubString(value, 0, 250);
+                integer bytes;
+                if(isASCII) bytes = llStringLength(part);
+                else bytes = getStringBytes(part);
+                
+                if(width + bytes <= available)
+                {
+                    value = llDeleteSubString(value, 0, 250);
+                    width += bytes;
+                    total -= bytes;
+                    fragment += part;
+                }
+                else jump breakFragment;
+            }
+            @breakFragment;
+            
+            if(value == "") eventType = eventType | EVENT_FINAL_FRAGMENT;
+            
+            string message = llChar(eventType) + llChar(LINKSETDATA_UPDATE + 1) + llChar(nameLength) + name + fragment;
+            if(target) llRegionSayTo(target, channel, message);
+            else llRegionSay(channel, message);
+        }
+    }
+    
+    // Direct message
+    else
+    {
+        string message = llChar(eventType) + llChar(LINKSETDATA_UPDATE + 1) + llChar(nameLength) + name + value;
+        if(target) llRegionSayTo(target, channel, message);
+        else llRegionSay(channel, message);
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Initialise by pinging all and get latest dataset from network
 default
 {
     state_entry()
     {
-        llListen(DATA_CHANNEL, "", "", "");
+        llMessageLinked(LINK_SET, MESSAGE_SYNC_BOOT, "", "");
+        
+        // Reset scoped data, setup listeners and ping everyone
+        integer iterator = llGetListLength(scopes);
         string signature = llSignRSA(privateKey, (string)llGetKey() + " " + llGetDate(), "sha512");
-        llRegionSay(DATA_CHANNEL,
-            llChar(EVENT_PING) +
-            llChar(llStringLength(signature)) +
-            signature
-        );
+        integer signatureLength = llStringLength(signature);
+        while(iterator --> 0)
+        {
+            string prefix = llList2String(scopes, iterator);
+            llLinksetDataDeleteFound("^" + prefix, "");
+            integer channel = llList2Integer(scopeChannels, iterator);
+            llListen(channel, "", "", "");
+            llRegionSay(channel, llChar(EVENT_PING) + llChar(signatureLength) + signature + prefix);
+        }
+        
+        // Timeout from pongs
         llSetTimerEvent(0.5);
     }
     
-    on_rez(integer param) { llResetScript(); }
-    
     listen(integer channel, string name, key identifier, string message)
     {
-        integer eventType = llOrd(message, 0);
+        integer header = llOrd(message, 0);
+        integer eventType = header & EVENT_TYPE;
+        integer eventFlags = header & ~EVENT_TYPE;
         
-        if(eventType == EVENT_PING || eventType == EVENT_PONG)
+        if(eventType == EVENT_PONG)
         {
+            // Parse packet and verify RSA signature
             integer signatureLength = llOrd(message, 1);
             string signature = llGetSubString(message, 2, 1 + signatureLength);
             string expected = (string)identifier + " " + llGetDate();
             if(!llVerifyRSA(publicKey, expected, signature, "sha512")) return;
             
-            integer iterator = llGetListLength(verified);
-            while(iterator --> 0)
-            {
-                if(llKey2Name(llList2Key(verified, iterator)) == "")
-                    verified = llDeleteSubList(verified, iterator, iterator);
-            }
-            verified += identifier;
+            // Don't add to verified list yet, check scope first
             
-            if(eventType == EVENT_PING)
-            {
-                signature = llSignRSA(privateKey, (string)llGetKey() + " " + llGetDate(), "sha512");
-                signatureLength = llStringLength(signature);
-                
-                llRegionSayTo(identifier, DATA_CHANNEL,
-                    llChar(EVENT_PONG) +
-                    llChar(signatureLength) +
-                    signature +
-                    llDumpList2String(scope, llChar(1))
-                );
-            }
+            // Refresh timeout
+            llSetTimerEvent(FALSE);
+            llSetTimerEvent(0.5);
             
-            else if(eventType == EVENT_PONG)
+            // Add to candidates if scope matches
+            integer isVerified = (llListFindList(verified, [identifier]) != -1);
+            list peerScope = llParseString2List(llGetSubString(message, 2 + signatureLength, -1), [llChar(1)], []);
+            integer peerIterator = llGetListLength(peerScope);
+            while(peerIterator --> 0)
             {
-                llSetTimerEvent(FALSE);
+                string peerPrefix = llList2String(peerScope, peerIterator);
                 
-                // This section was AI'd and then bugfixed, sue me. My brain was hurting from trying to figure out the logic on the complexity of sorting out
-                // multiple sources of truth based on scope and rez times. Like wtf is this https://i.gyazo.com/d4449e0348354c61b2ee6e3c9ee65e17.png
-                list peerScope = llParseString2List(llGetSubString(message, 2 + signatureLength, -1), [llChar(1)], []);
-                integer peerTimestamp = uStamp2UnixInt(llParseString2List(llList2String(llGetObjectDetails(identifier, [OBJECT_REZ_TIME]), 0), ["-", "T", ":", "."], []));
-                
-                integer peerScopeLen = llGetListLength(peerScope);
-                integer ourScopeLen = llGetListLength(scope);
-                
-                integer peerIter = peerScopeLen;
-                while(peerIter --> 0)
+                // Check if each peer prefix matches any of our scopes
+                integer ownIterator = llGetListLength(scopes);
+                while(ownIterator --> 0)
                 {
-                    string peerPrefix = llList2String(peerScope, peerIter);
+                    string ownPrefix = llList2String(scopes, ownIterator);
                     
-                    integer ourIter = ourScopeLen;
-                    while(ourIter --> 0)
+                    // Phase 1: Check if peer prefix is wider, shorter or exact match
+                    // Is peer prefix wider?
+                    if(llSubStringIndex(peerPrefix, ownPrefix) != 0)
                     {
-                        string ourPrefix = llList2String(scope, ourIter);
-                        
-                        // Check if prefixes overlap
-                        if(llSubStringIndex(peerPrefix, ourPrefix) == 0 || llSubStringIndex(ourPrefix, peerPrefix) == 0)
+                        // Is peer prefix shorter?
+                        if(llSubStringIndex(ownPrefix, peerPrefix) != 0)
                         {
-                            // Check if this peer is older than existing candidates with overlapping scope
-                            integer addCandidate = TRUE;
-                            integer candIter = llGetListLength(sourceCandidates);
-                            list toRemove = [];
-                            
-                            while(candIter > 0)
-                            {
-                                candIter -= 3;
-                                key candKey = llList2Key(sourceCandidates, candIter);
-                                integer candTime = llList2Integer(sourceCandidates, candIter + 1);
-                                string candPrefix = llList2String(sourceCandidates, candIter + 2);
-                                
-                                // Check if this candidate has overlapping scope
-                                if(llSubStringIndex(candPrefix, peerPrefix) == 0 || llSubStringIndex(peerPrefix, candPrefix) == 0)
-                                {
-                                    integer peerPrefixLen = llStringLength(peerPrefix);
-                                    integer candPrefixLen = llStringLength(candPrefix);
-                                    
-                                    // Peer is older - only remove candidate if peer's scope is wider or equal
-                                    if(peerTimestamp < candTime && peerPrefixLen <= candPrefixLen) toRemove += [candIter];
-                                    
-                                    // Peer is newer - only reject it if candidate's scope is wider or equal
-                                    else if(peerTimestamp > candTime && candPrefixLen <= peerPrefixLen) addCandidate = FALSE;
-                                    
-                                    // Same object, same timestamp, same scope - already exists
-                                    else if(identifier == candKey && candPrefix == peerPrefix) addCandidate = FALSE;
-                                }
-                            }
-                            
-                            // Remove newer candidates with narrower or equal scope (iterate backwards)
-                            integer removeIter = llGetListLength(toRemove);
-                            if(removeIter) toRemove = llListSort(toRemove, 1, TRUE);
-                            while(removeIter --> 0)
-                            {
-                                integer idx = llList2Integer(toRemove, removeIter);
-                                sourceCandidates = llDeleteSubList(sourceCandidates, idx, idx + 2);
-                            }
-                            
-                            // Add this peer as a candidate if it passed all checks
-                            if(addCandidate)
-                            {
-                                sourceCandidates += [identifier, peerTimestamp, peerPrefix];
-                                
-                                // Sort candidates by timestamp (oldest first)
-                                sourceCandidates = llListSortStrided(sourceCandidates, 3, 1, TRUE);
-                            }
-                            
-                            // Break out of ourScope loop since we did consider this peer
-                            jump breakOurScope;
+                            // Peer prefix doesnt match our scope to track, so skip it
+                            jump nextPeerPrefix;
                         }
                     }
-                    @breakOurScope;
+                    
+                    if(!isVerified)
+                    {
+                        // Mark as verified
+                        integer iterator = llGetListLength(verified);
+                        while(iterator --> 0)
+                        {
+                            if(llKey2Name(llList2Key(verified, iterator)) == "")
+                                verified = llDeleteSubList(verified, iterator, iterator);
+                        }
+                        verified += identifier;
+                        isVerified = TRUE;
+                    }
+                    
+                    // Phase 2: Compare with candidates; Check if already exact match or is shorter, otherwise delete any wider prefixes
+                    integer candidatesIterator = llGetListLength(candidates);
+                    while(candidatesIterator > 0)
+                    {
+                        candidatesIterator -= 2;
+                        string candidatePrefix = llList2String(candidates, candidatesIterator + 1);
+                        
+                        if(peerPrefix == candidatePrefix)
+                            jump nextPeerPrefix; // Already have this candidate;
+                        
+                        // Is candidate shorter than peer?
+                        else if(llSubStringIndex(peerPrefix, candidatePrefix) == 0)
+                            jump nextPeerPrefix; // Skip adding peer as candidate as we already have a better match
+                        
+                        // Is candidate wider than peer?
+                        else if(llSubStringIndex(candidatePrefix, peerPrefix) == 0)
+                            // Delete candidate as peer is a better match
+                            candidates = llDeleteSubList(candidates, candidatesIterator, candidatesIterator + 1);
+                    }
+                    
+                    // Phase 3: Add peer as candidate
+                    candidates += [identifier, peerPrefix];
+                    
+                    @nextPeerPrefix;
                 }
-                
-                llSetTimerEvent(0.5);
+                @nextPeer;
             }
         }
         
         else if(llListFindList(verified, [identifier]) == -1) return;
         
         
-        if(eventType == EVENT_DATA)
+        // Sync event
+        if(eventType == EVENT_SYNC_RESPONSE)
         {
-            integer action = llOrd(message, 1) - 1;
+            // integer action = llOrd(message, 1) - 1;
             integer nameLength = llOrd(message, 2);
             string name = llGetSubString(message, 3, 2 + nameLength);
             string value = llGetSubString(message, 3 + nameLength, -1);
             
+            if(!inScope(name)) return;
+            
+            if(eventFlags & EVENT_FRAGMENT)
+            {
+                integer pointer = llListFindStrided(buffer, [name], 0, -1, 2);
+                if(pointer != -1) value = llList2String(buffer, pointer + 1) + value;
+                
+                if(eventFlags & EVENT_FINAL_FRAGMENT)
+                {
+                    buffer = llDeleteSubList(buffer, pointer, pointer + 1);
+                    llLinksetDataWrite(name, value);
+                }
+                else if(pointer == -1) buffer += [name, value];
+                else buffer = llListReplaceList(buffer, [name, value], pointer, pointer + 1);
+            }
+            else llLinksetDataWrite(name, value);
+        }
+        
+        else if(eventType == EVENT_SYNC_COMPLETE)
+        {
+            // If no more candidates, move to sync state
+            if(candidates); else state sync;
+            
+            // Pull out the next candidate to sync
+            key peer = llList2Key(candidates, 0);
+            list peerScopes = [llList2String(candidates, 1)];
+            candidates = llDeleteSubList(candidates, 0, 1);
+            
+            // Merge other scopes for same peer
+            while(llList2Key(candidates, 0) == peer)
+            {
+                peerScopes += llList2String(candidates, 1);
+                candidates = llDeleteSubList(candidates, 0, 1);
+            }
+            
+            llRegionSayTo(peer, llList2Integer(scopeChannels, llListFindList(scopes, [llList2String(peerScopes, 0)])),
+                llChar(EVENT_SYNC_REQUEST) + llDumpList2String(peerScopes, llChar(1))
+            );
+        }
+    }
+    
+    timer()
+    {
+        llSetTimerEvent(FALSE);
+        
+        // If no candidates, move directly to sync state
+        if(candidates); else state sync;
+        
+        // Sort candidates by key
+        candidates = llListSort(candidates, 2, TRUE);
+        
+        // Pull out a candidate
+        key peer = llList2Key(candidates, 0);
+        list peerScopes = [llList2String(candidates, 1)];
+        candidates = llDeleteSubList(candidates, 0, 1);
+        
+        // Merge other scopes for same peer
+        while(llList2Key(candidates, 0) == peer)
+        {
+            peerScopes += llList2String(candidates, 1);
+            candidates = llDeleteSubList(candidates, 0, 1);
+        }
+        
+        llRegionSayTo(peer, llList2Integer(scopeChannels, llListFindList(scopes, [llList2String(peerScopes, 0)])),
+            llChar(EVENT_SYNC_REQUEST) + llDumpList2String(peerScopes, llChar(1))
+        );
+    }
+    
+    state_exit()
+    {
+        llMessageLinked(LINK_SET, MESSAGE_SYNC_READY, "", "");
+    }
+}
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Idle away, synchronising data as needed
+state sync
+{
+    on_rez(integer param) { llResetScript(); }
+    changed(integer change) { if(change & CHANGED_REGION) llResetScript(); }
+    state_entry()
+    {
+        integer iterator = llGetListLength(scopes);
+        while(iterator --> 0) llListen(llList2Integer(scopeChannels, iterator), "", "", "");
+    }
+    
+    listen(integer channel, string name, key identifier, string message)
+    {
+        integer header = llOrd(message, 0);
+        integer eventType = header & EVENT_TYPE;
+        integer eventFlags = header & ~EVENT_TYPE;
+        
+        if(eventType == EVENT_PING)
+        {
+            // Parse packet and verify RSA signature
+            integer signatureLength = llOrd(message, 1);
+            string signature = llGetSubString(message, 2, 1 + signatureLength);
+            string expected = (string)identifier + " " + llGetDate();
+            if(!llVerifyRSA(publicKey, expected, signature, "sha512")) return;
+            
+            // Check if peer prefix matches any of our scopes
+            integer hasMatch = FALSE;
+            list matchedScopes;
+            string peerPrefix = llGetSubString(message, 2 + signatureLength, -1);
+            integer iterator = llGetListLength(scopes);
+            while(iterator --> 0)
+            {
+                string ownPrefix = llList2String(scopes, iterator);
+                if(llSubStringIndex(peerPrefix, ownPrefix) == 0) matchedScopes += ownPrefix;
+                else if(llSubStringIndex(ownPrefix, peerPrefix) == 0) matchedScopes += ownPrefix;
+            }
+            if(matchedScopes); else return;
+            
+            // Mark as verified
+            iterator = llGetListLength(verified);
+            while(iterator --> 0)
+            {
+                if(llKey2Name(llList2Key(verified, iterator)) == "")
+                    verified = llDeleteSubList(verified, iterator, iterator);
+            }
+            if(llListFindList(verified, [identifier]) == -1) verified += identifier;
+            
+            // Respond with pong
+            signature = llSignRSA(privateKey, (string)llGetKey() + " " + llGetDate(), "sha512");
+            signatureLength = llStringLength(signature);
+            llRegionSayTo(identifier, channel,
+                llChar(EVENT_PONG) +
+                llChar(signatureLength) +
+                signature +
+                llDumpList2String(matchedScopes, llChar(1))
+            );
+            
+            /*
+            // Add to verified list and respond if scope matches
+            list matchedScopes;
+            list peerScope = llParseString2List(llGetSubString(message, 2 + signatureLength, -1), [llChar(1)], []);
+            integer peerIterator = llGetListLength(peerScope);
+            while(peerIterator --> 0)
+            {
+                string peerPrefix = llList2String(peerScope, peerIterator);
+                
+                // Check if each peer prefix matches any of our scopes
+                integer ownIterator = llGetListLength(scopes);
+                while(ownIterator --> 0)
+                {
+                    string ownPrefix = llList2String(scopes, ownIterator);
+                    
+                    // Check if peer prefix is wider, shorter or exact match
+                    if(llSubStringIndex(peerPrefix, ownPrefix) == 0 || llSubStringIndex(ownPrefix, peerPrefix) == 0)
+                        matchedScopes += peerPrefix;
+                }
+            }
+            
+            if(matchedScopes)
+            {
+                // Mark as verified
+                integer iterator = llGetListLength(verified);
+                while(iterator --> 0)
+                {
+                    if(llKey2Name(llList2Key(verified, iterator)) == "")
+                        verified = llDeleteSubList(verified, iterator, iterator);
+                }
+                verified += identifier;
+                
+                // Respond with pong
+                llRegionSayTo(identifier, channel,
+                    llChar(EVENT_PONG) +
+                    llChar(signatureLength) +
+                    signature +
+                    llDumpList2String(scopes, llChar(1))
+                );
+            }
+            */
+        }
+        
+        else if(llListFindList(verified, [identifier]) == -1) return;
+        
+        
+        // Remote linkset data event
+        if(eventType == EVENT_DATA)
+        {
+            integer action = llOrd(message, 1) - 1;
+            
             if(action == LINKSETDATA_UPDATE)
             {
+                integer nameLength = llOrd(message, 2);
+                string name = llGetSubString(message, 3, 2 + nameLength);
+                
                 if(!inScope(name)) return;
-                pending += [action, name];
-                llLinksetDataWrite(name, value);
+                
+                string value = llGetSubString(message, 3 + nameLength, -1);
+                
+                if(eventFlags & EVENT_FRAGMENT)
+                {
+                    integer pointer = llListFindStrided(buffer, [name], 0, -1, 2);
+                    if(pointer != -1) value = llList2String(buffer, pointer + 1) + value;
+                    
+                    if(eventFlags & EVENT_FINAL_FRAGMENT)
+                    {
+                        buffer = llDeleteSubList(buffer, pointer, pointer + 1);
+                        if(llLinksetDataWrite(name, value) == LINKSETDATA_OK) pending += [action, name];
+                    }
+                    else if(pointer == -1) buffer += [name, value];
+                    else buffer = llListReplaceList(buffer, [name, value], pointer, pointer + 1);
+                }
+                else
+                {
+                    if(llLinksetDataWrite(name, value) == LINKSETDATA_OK) pending += [action, name];
+                }
             }
             
             else if(action == LINKSETDATA_DELETE)
             {
+                string name = llGetSubString(message, 2, -1);
                 if(!inScope(name)) return;
-                pending += [action, name];
-                llLinksetDataDelete(name);
+                if(llLinksetDataDelete(name) == LINKSETDATA_OK) pending += [action, name];
             }
             
             else if(action == LINKSETDATA_MULTIDELETE)
             {
-                list names = llJson2List(name);
-                integer iterator = llGetListLength(names);
-                while(iterator --> 0)
-                {
-                    name = llList2String(names, iterator);
-                    if(inScope(name))
-                    {
-                        pending += [action, name];
-                        llLinksetDataDelete(name);
-                    }
-                }
+                integer prefixLength = llOrd(message, 2);
+                string prefix = llGetSubString(message, 3, 2 + prefixLength);
+                // if(!inScope(prefix)) return; -- This is complex as the source may be wider or narrower than our scopes but still have relevant data, hmm...
+                // For now we cheat a bit because delete found can tell us how many were deleted
+                // There is however danger for overlap between local and synced data if they have the same names but weren't intended to be synced
+                
+                // Escape regex special characters and prepare bucket as a regex pattern
+                string bucket = llGetSubString(message, 3 + prefixLength, -1);
+                bucket = llReplaceSubString(bucket, ".", "\\.", 0);
+                bucket = llReplaceSubString(bucket, "^", "\\^", 0);
+                bucket = llReplaceSubString(bucket, "$", "\\$", 0);
+                bucket = llReplaceSubString(bucket, "*", "\\*", 0);
+                bucket = llReplaceSubString(bucket, "+", "\\+", 0);
+                bucket = llReplaceSubString(bucket, "?", "\\?", 0);
+                bucket = llReplaceSubString(bucket, "(", "\\(", 0);
+                bucket = llReplaceSubString(bucket, ")", "\\)", 0);
+                bucket = llReplaceSubString(bucket, "{", "\\{", 0);
+                bucket = llReplaceSubString(bucket, "}", "\\}", 0);
+                bucket = llReplaceSubString(bucket, "|", "\\|", 0);
+                bucket = "^" + prefix + "(" + llReplaceSubString(bucket, llChar(1), "|", 0) + ")$";
+                integer deleted = llList2Integer(llLinksetDataDeleteFound(bucket, ""), 0);
+                if(deleted) pending += [action, ""];
+                
+                // // Convert multi-delete into individual deletes to handle synced scopes
+                // list bucket = llParseString2List(llGetSubString(message, 2, -1), [llChar(1)], []);
+                // integer iterator = llGetListLength(bucket);
+                // while(iterator --> 0)
+                // {
+                //     string name = llList2String(bucket, iterator);
+                //     if(inScope(name))
+                //     {
+                //         pending += [LINKSETDATA_DELETE, name];
+                //         llLinksetDataDelete(name);
+                //     }
+                // }
             }
             
             else if(action == LINKSETDATA_RESET)
             {
-                pending += [action, ""];
-                llLinksetDataReset();
+                string prefix = llGetSubString(message, 2, -1);
+                if(!inScope(prefix)) return;
+                // llLinksetDataReset(); -- Takes out all data even locally scoped, so we convert it to a multi-delete instead
+                integer deleted = llList2Integer(llLinksetDataDeleteFound("^" + prefix, ""), 0);
+                if(deleted) pending += [LINKSETDATA_MULTIDELETE, ""];
             }
         }
         
-        else if(eventType == EVENT_DATA_FRAGMENT || eventType == EVENT_DATA_END)
-        {
-            integer nameLength = llOrd(message, 1);
-            string name = llGetSubString(message, 2, 1 + nameLength);
-            if(!inScope(name)) return;
-            string value = llGetSubString(message, 2 + nameLength, -1);
-            
-            integer pointer = llListFindStrided(buffer, [name], 0, -1, 2);
-            if(eventType == EVENT_DATA_FRAGMENT)
-            {
-                string prev = llList2String(buffer, pointer + 1);
-                buffer = llListReplaceList(buffer, [prev + value], pointer + 1, pointer + 1);
-            }
-            
-            else // if(eventType == EVENT_DATA_END)
-            {
-                string prev = llList2String(buffer, pointer + 1);
-                buffer = llDeleteSubList(buffer, pointer, pointer + 1);
-                value = prev + value;
-                
-                pending += [LINKSETDATA_UPDATE, name];
-                llLinksetDataWrite(name, value);
-            }
-        }
+        // TODO: Would this be desirable? Would have to specify a common channel though. The idea would be to piggyback on the secure comms to send messages across
+        // // Remote link message event
+        // else if(eventType == EVENT_MESSAGE)
+        // {
+        //     integer textLength = llOrd(message, 1);
+        //     string text = llGetSubString(message, 2, 1 + textLength);
+        //     string text2 = llGetSubString(message, 2 + textLength, -1);
+        //     llMessageLinked(LINK_SET, MESSAGE_SYNC, text, text2);
+        // }
         
-        else if(eventType == EVENT_REQUEST)
+        // Full synchronisation with peer
+        else if(eventType == EVENT_SYNC_REQUEST)
         {
             list requestScopes;
             integer requestIterator;
@@ -340,11 +543,11 @@ default
             }
             
             integer sent = 0;
-            integer iterator = llGetListLength(scope);
+            integer iterator = llGetListLength(scopes);
             while(iterator --> 0)
             {
-                string pattern = "^" + llList2String(scope, iterator);
-                list names = llLinksetDataFindKeys(pattern, 0, FALSE);
+                string pattern = "^" + llList2String(scopes, iterator);
+                list names = llLinksetDataFindKeys(pattern, 0, FALSE); // TODO: Change to paginate the results
                 integer nameIterator = llGetListLength(names);
                 while(nameIterator --> 0)
                 {
@@ -353,39 +556,28 @@ default
                     {
                         for(requestIterator = 0; requestIterator < requestTotal; ++requestIterator)
                         {
-                            string requestScope = llList2String(requestScopes, requestIterator);
-                            if(llSubStringIndex(name, requestScope) == 0) jump valid;
+                            string requestPrefix = llList2String(requestScopes, requestIterator);
+                            if(llSubStringIndex(name, requestPrefix) == 0) jump requestMatch;
                         }
-                        jump skip;
+                        jump requestSkip;
                     }
-                    @valid;
+                    @requestMatch;
+                    
                     string value = llLinksetDataRead(name);
-                    sendData(identifier, LINKSETDATA_UPDATE, name, value);
-                    if((++sent % 16) == 0) llSleep(4/45.); // Avoid flooding
-                    @skip;
+                    sendData(identifier, channel, EVENT_SYNC_RESPONSE, name, value);
+                    if((++sent % 32) == 0) llSleep(4/45.); // Avoid flooding
+                    
+                    @requestSkip;
                 }
             }
             
-            llRegionSayTo(identifier, DATA_CHANNEL, llChar(EVENT_REQUEST_COMPLETE));
-        }
-        
-        else if(eventType == EVENT_REQUEST_COMPLETE)
-        {
-            @retryComplete;
-            if(sourceCandidates)
-            {
-                key peer = llList2Key(sourceCandidates, 0);
-                string peerScope = llList2String(sourceCandidates, 2);
-                sourceCandidates = llDeleteSubList(sourceCandidates, 0, 2);
-                if(peer == llGetKey()) jump retryComplete;
-                llRegionSayTo(peer, DATA_CHANNEL, llChar(EVENT_REQUEST) + peerScope);
-                // TODO: Peer may be actually listed multiple times, if so: merge all prefixes of same peer and dump as llDumpList2String(peerScope, llChar(1))
-            }
+            llRegionSayTo(identifier, channel, llChar(EVENT_SYNC_COMPLETE));
         }
     }
     
     linkset_data(integer action, string name, string value)
     {
+        // Skip if this was expected and a change by this script from an external source
         if(pending)
         {
             integer pendingAction = llList2Integer(pending, 0);
@@ -393,91 +585,92 @@ default
             if(action == pendingAction)
             {
                 if((action == LINKSETDATA_UPDATE || action == LINKSETDATA_DELETE) && name == pendingName)
-                {
-                    pending = llDeleteSubList(pending, 0, 1);
-                    return;
-                }
+                    { pending = llDeleteSubList(pending, 0, 1); return; }
                 
                 else // MULTIDELETE or RESET
+                    { pending = llDeleteSubList(pending, 0, 1); return; }
+            }
+        }
+        
+        if(action == LINKSETDATA_UPDATE)
+        {
+            integer iterator = llGetListLength(scopes);
+            while(iterator --> 0)
+            {
+                string prefix = llList2String(scopes, iterator);
+                if(llSubStringIndex(name, prefix) == 0)
                 {
-                    pending = llDeleteSubList(pending, 0, 1);
-                    return;
+                    integer channel = llList2Integer(scopeChannels, iterator);
+                    return sendData(NULL_KEY, channel, EVENT_DATA, name, value);
                 }
             }
         }
         
-        if(action == LINKSETDATA_UPDATE || action == LINKSETDATA_DELETE)
+        else if(action == LINKSETDATA_DELETE)
         {
-            if(!inScope(name)) return;
-            
-            integer iterator = llGetListLength(scope);
+            integer iterator = llGetListLength(scopes);
             while(iterator --> 0)
             {
-                string prefix = llList2String(scope, iterator);
+                string prefix = llList2String(scopes, iterator);
                 if(llSubStringIndex(name, prefix) == 0)
-                    return sendData(NULL_KEY, action, name, value);
+                {
+                    integer channel = llList2Integer(scopeChannels, iterator);
+                    llRegionSay(channel, llChar(EVENT_DATA) + llChar(action + 1) + name);
+                    return;
+                }
             }
         }
         
         else if(action == LINKSETDATA_RESET)
         {
-            sendData(NULL_KEY, action, name, value);
+            integer iterator = llGetListLength(scopes);
+            while(iterator --> 0)
+            {
+                string prefix = llList2String(scopes, iterator);
+                integer channel = llList2Integer(scopeChannels, iterator);
+                llRegionSay(channel, llChar(EVENT_DATA) + llChar(action + 1) + prefix);
+            }
         }
         
         else if(action == LINKSETDATA_MULTIDELETE)
         {
             list deleted = llParseString2List(name, [","], []);
             list known;
-            integer total = llGetListLength(scope);
+            integer total = llGetListLength(scopes);
+            integer iterator = total;
+            while(iterator --> 0) known += "";
+            
             do {
                 name = llList2String(deleted, 0);
                 deleted = llDeleteSubList(deleted, 0, 0);
                 
-                integer iterator = total;
+                iterator = total;
                 while(iterator --> 0)
                 {
-                    string prefix = llList2String(scope, iterator);
-                    if(llSubStringIndex(name, prefix) == 0) known += name;
+                    string prefix = llList2String(scopes, iterator);
+                    if(llSubStringIndex(name, prefix) == 0)
+                    {
+                        name = llDeleteSubString(name, 0, llStringLength(prefix) - 1);
+                        
+                        string bucket = llList2String(known, iterator);
+                        if(bucket) bucket += llChar(1) + name; else bucket += name;
+                        known = llListReplaceList(known, [bucket], iterator, iterator);
+                    }
                 }
             } while(deleted);
             
-            name = llDumpList2String(known, ",");
-            if(known) sendData(NULL_KEY, action, name, value);
-        }
-    }
-    
-    timer()
-    {
-        llSetTimerEvent(FALSE);
-        
-        // Clear our local data, we are going to re-request everything from the source of truth(s)
-        integer index;
-        integer count = llGetListLength(sourceCandidates);
-        for(; index < count; index += 3)
-        {
-            key peer = llList2Key(sourceCandidates, 0);
-            string peerScope = llList2String(sourceCandidates, 2);
-            if(peer != llGetKey()) 
+            iterator = total;
+            while(iterator --> 0)
             {
-                string pattern = "^" + peerScope;
-                list results = llLinksetDataDeleteFound(pattern, "");
-                if(llList2Integer(results, 0) > 0) pending += [LINKSETDATA_MULTIDELETE, pattern];
+                string bucket = llList2String(known, iterator);
+                if(bucket)
+                {
+                    string prefix = llList2String(scopes, iterator);
+                    integer channel = llList2Integer(scopeChannels, iterator);
+                    llRegionSay(channel, llChar(EVENT_DATA) + llChar(action + 1) + llChar(llStringLength(prefix)) + prefix + bucket);
+                    // TODO: Check if we need to fragment the bucket across multiple messages
+                }
             }
-        }
-        
-        // Reverse sort by newest first; We want to request everything from our source of truths
-        // but in an order where older sources will overwrite data / be trusted more
-        sourceCandidates = llListSortStrided(sourceCandidates, 3, 1, FALSE);
-        
-        @retrySource;
-        if(sourceCandidates)
-        {
-            key peer = llList2Key(sourceCandidates, 0);
-            string peerScope = llList2String(sourceCandidates, 2);
-            sourceCandidates = llDeleteSubList(sourceCandidates, 0, 2);
-            if(peer == llGetKey()) jump retrySource;
-            llRegionSayTo(peer, DATA_CHANNEL, llChar(EVENT_REQUEST) + peerScope);
         }
     }
 }
-
