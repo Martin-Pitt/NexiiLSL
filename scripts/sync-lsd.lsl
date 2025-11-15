@@ -384,48 +384,6 @@ state sync
                 signature +
                 llDumpList2String(matchedScopes, llChar(1))
             );
-            
-            /*
-            // Add to verified list and respond if scope matches
-            list matchedScopes;
-            list peerScope = llParseString2List(llGetSubString(message, 2 + signatureLength, -1), [llChar(1)], []);
-            integer peerIterator = llGetListLength(peerScope);
-            while(peerIterator --> 0)
-            {
-                string peerPrefix = llList2String(peerScope, peerIterator);
-                
-                // Check if each peer prefix matches any of our scopes
-                integer ownIterator = llGetListLength(scopes);
-                while(ownIterator --> 0)
-                {
-                    string ownPrefix = llList2String(scopes, ownIterator);
-                    
-                    // Check if peer prefix is wider, shorter or exact match
-                    if(llSubStringIndex(peerPrefix, ownPrefix) == 0 || llSubStringIndex(ownPrefix, peerPrefix) == 0)
-                        matchedScopes += peerPrefix;
-                }
-            }
-            
-            if(matchedScopes)
-            {
-                // Mark as verified
-                integer iterator = llGetListLength(verified);
-                while(iterator --> 0)
-                {
-                    if(llKey2Name(llList2Key(verified, iterator)) == "")
-                        verified = llDeleteSubList(verified, iterator, iterator);
-                }
-                verified += identifier;
-                
-                // Respond with pong
-                llRegionSayTo(identifier, channel,
-                    llChar(EVENT_PONG) +
-                    llChar(signatureLength) +
-                    signature +
-                    llDumpList2String(scopes, llChar(1))
-                );
-            }
-            */
         }
         
         else if(llListFindList(verified, [identifier]) == -1) return;
@@ -495,19 +453,6 @@ state sync
                 bucket = "^" + prefix + "(" + llReplaceSubString(bucket, llChar(1), "|", 0) + ")$";
                 integer deleted = llList2Integer(llLinksetDataDeleteFound(bucket, ""), 0);
                 if(deleted) pending += [action, ""];
-                
-                // // Convert multi-delete into individual deletes to handle synced scopes
-                // list bucket = llParseString2List(llGetSubString(message, 2, -1), [llChar(1)], []);
-                // integer iterator = llGetListLength(bucket);
-                // while(iterator --> 0)
-                // {
-                //     string name = llList2String(bucket, iterator);
-                //     if(inScope(name))
-                //     {
-                //         pending += [LINKSETDATA_DELETE, name];
-                //         llLinksetDataDelete(name);
-                //     }
-                // }
             }
             
             else if(action == LINKSETDATA_RESET)
