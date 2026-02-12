@@ -1,10 +1,10 @@
 // Interpolating between two ranges
-float rescale(float from_min, float from, float from_max, float to_min, float to_max) {
+float rescale(float from_min, float from_max, float to_min, float to_max, float from) {
     return to_min + ((to_max-to_min) * ((from_min-from) / (from_min-from_max)));
 }
 
 // with clamping
-float rescaleClamped(float from_min, float from, float from_max, float to_min, float to_max) {
+float rescaleClamped(float from_min, float from_max, float to_min, float to_max, float from) {
     from = to_min + ((to_max-to_min) * ((from_min-from) / (from_min-from_max)));
     if(to_min < to_max) {
         if(from < to_min) from = to_min; else if(from > to_max) from = to_max;
