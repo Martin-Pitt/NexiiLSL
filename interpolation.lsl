@@ -59,7 +59,7 @@ vector interpolateVector(vector a, vector b, float t) {
     return a*(1-t) + b*t;
 }
 
-vector interpolateVectorCosine(float a, float b, float t) {
+vector interpolateVectorCosine(vector a, vector b, float t) {
     t = (1-llCos(t*PI))/2;
     return a*(1-t) + b*t;
 }

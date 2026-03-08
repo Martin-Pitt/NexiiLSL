@@ -22,6 +22,20 @@ rotation ConstrainPitch(rotation R, vector N){
 }
 
 
+rotation NormalizeRot(rotation Q) {
+    float val = Q.x*Q.x + Q.y*Q.y + Q.z*Q.z + Q.s*Q.s;
+    if(val >= 0.0) {
+        float MagQ = llSqrt(val);
+        if(MagQ != 0.0) {
+            Q.x = Q.x/MagQ;
+            Q.y = Q.y/MagQ;
+            Q.z = Q.z/MagQ;
+            Q.s = Q.s/MagQ;
+        }
+    }
+    return Q;
+}
+
 /*
 Example:
 

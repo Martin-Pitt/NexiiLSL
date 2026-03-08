@@ -79,3 +79,21 @@ list triangleCoords(vector a, vector b, vector c, integer i)
     //     PRIM_TYPE, PRIM_TYPE_BOX, PRIM_HOLE_DEFAULT, <0, 1, 0>, 0, <0, 0, 0>, <1, 0, 0>, <0, y_shear, 0>
     // ];
 }
+
+
+
+integer inPolygon(vector point, list vertices)
+{
+    integer i;
+    integer j = llGetListLength(vertices); // [x1, y1, x2, y2, x3, y3, ...]
+    for (i = 0; i < j; i += 2)
+    {
+        float ax = llList2Float(vertices, i - 2);
+        float ay = llList2Float(vertices, i - 1);
+        float bx = llList2Float(vertices, i);
+        float by = llList2Float(vertices, i + 1);
+        if((ay > point.y) != (by > point.y) && (point.x < (bx - ax) * (point.y - ay) / (by - ay) + ax))
+            return TRUE;
+    }
+    return FALSE;
+}

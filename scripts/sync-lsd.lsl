@@ -18,6 +18,10 @@
 // We use RSA signatures to verify secure communications
 string privateKey = "-----REPLACE WITH RSA PRIVATE KEY-----";
 string publicKey = "-----REPLACE WITH RSA PUBLIC KEY-----";
+// We use a protected linkset data key to prevent spoofing due to extracted scripts
+// You only need this when using this script in no-mod attachments, e.g. experience temp attach
+string protectedName = "SYNC_LSD_PROTECTED";
+string protectedKey = "-----REPLACE WITH SECRET-----";
 
 /// Scope prefixes of linkset data keys to synchronise
 list scopes = [
@@ -132,6 +136,13 @@ default
 {
     state_entry()
     {
+        if(llLinksetDataReadProtected(protectedName, protectedKey) == "")
+        {
+            llDetachFromAvatar();
+            llDie();
+            return;
+        }
+        
         llMessageLinked(LINK_SET, MESSAGE_SYNC_BOOT, "", "");
         
         // Reset scoped data, setup listeners and ping everyone
