@@ -6,6 +6,7 @@
 // PRIM_NAME -- 63 bytes, restricted UTF-8 range, 32-126 except 124 ("|")
 // PRIM_DESC -- 127 bytes, restricted UTF-8 range, 32-126 except 124 ("|")
 // PRIM_TEXT -- 254 bytes, full UTF-8 range -- best for storing the raw values chunked across multiple prims
+// -- Warning: Any PRIM_TEXT with unicode in range 0x1-0x1F via llChar corrupts the object from being rezzed from inventory
 
 string llRemoteLinksetDataRead(key object, string name)
 {
