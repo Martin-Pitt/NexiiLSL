@@ -57,7 +57,7 @@ RebuildRemoteLinksetData()
         name = llDeleteSubString(name, 0, 6);
         
         integer chunks = llCeil(llStringLength(value) / 254.);
-        vector color = llVecNorm(<llFrand(1), llFrand(1), llFrand(1)>);
+        // vector color = llVecNorm(<llFrand(1), llFrand(1), llFrand(1)>);
         while(chunks --> 0)
         {
             string chunk = llGetSubString(value, 0, 253);
@@ -65,26 +65,26 @@ RebuildRemoteLinksetData()
             params += [
                 PRIM_LINK_TARGET, link++,
                 PRIM_NAME, name,
-                PRIM_TEXT, chunk, <0, 0, 0>, 0,
+                PRIM_TEXT, chunk, <0, 0, 0>, 0
                 
                 // Debug
-                PRIM_COLOR, 0, color, 1,
-                PRIM_TEXTURE, 0, TEXTURE_BLANK, <1,1,0>, <0,0,0>, 0,
-                PRIM_FULLBRIGHT, 0, TRUE
+                // PRIM_COLOR, 0, color, 1,
+                // PRIM_TEXTURE, 0, TEXTURE_BLANK, <1,1,0>, <0,0,0>, 0,
+                // PRIM_FULLBRIGHT, 0, TRUE
             ];
         }
     }
     
     // Clear out any old data that is no longer used
     integer prims = llGetNumberOfPrims();
-    while(link < prims) params += [
+    while(link <= prims) params += [
         PRIM_LINK_TARGET, link++,
-        PRIM_NAME, "",
-        PRIM_TEXT, "", <0, 0, 0>, 0,
+        PRIM_NAME, "-",
+        PRIM_TEXT, "", <0, 0, 0>, 0
         
         // Debug
-        PRIM_COLOR, 0, <0, 0, 0>, 1,
-        PRIM_FULLBRIGHT, 0, 0
+        // PRIM_COLOR, 0, <0, 0, 0>, 1,
+        // PRIM_FULLBRIGHT, 0, 0
     ];
     
     // TODO: Lookup table on root prim?
