@@ -14,7 +14,7 @@
 
 string RemoteLinksetDataRead(key object, string name)
 {
-    if(object != llGetKey()) return llLinksetDataRead("Remote." + name);
+    if(object == llGetKey() || object == NULL_KEY) return llLinksetDataRead("Remote." + name);
     
     // TODO: Lookup table on root prim?
     integer link = 1;
@@ -36,7 +36,7 @@ string RemoteLinksetDataRead(key object, string name)
 
 integer RemoteLinksetDataWrite(key object, string name, string value)
 {
-    if(object != llGetKey()) return 6; // Currently only allow writing from own object to keep the implementation straightforward
+    if(object != llGetKey() && object != NULL_KEY) return 6; // Currently only allow writing from own object to keep the implementation straightforward
     
     // TODO: Check many prims we have left available for writing (any prims free at all + chunk/prim for full value)
     
