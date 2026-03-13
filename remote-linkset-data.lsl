@@ -1,14 +1,18 @@
 // Implementation of a public Remote Linkset Data storage system, similar in practice to llLinksetDataRead but on a remote object
 // Gotcha is that this works entirely through prim params (names, descriptions and/or hover text to store data)
-// This does mean that this is mostly suitable for a server object that is not seen by users
-// Storage capacity for values is roughly 254 bytes per child prim, but not guaranteed as data is reserved in 254 byte chunks per prim
+// This does mean that this it is mostly suitable for a server object to hold the remote linkset data
 
 // PRIM_NAME -- 63 bytes, restricted UTF-8 range, 32-126 except 124 ("|")
 // PRIM_DESC -- 127 bytes, restricted UTF-8 range, 32-126 except 124 ("|")
 // PRIM_TEXT -- 254 bytes, full UTF-8 range -- best for storing the raw values chunked across multiple prims
 // -- Warning: Any PRIM_TEXT with unicode in range 0x1-0x1F via llChar corrupts the object from being rezzed from inventory
+// Storage capacity is dependent on the number of prims in the linkset
+// Values are divided by 254 bytes per child prim's PRIM_TEXT, but it is not guaranteed to utilise capacity fully
+// as data is reserved in 254 byte chunks for each `name:value` pair, so e.g. if you have a linkset of 61 prims for example (where 1 prim is the root):
+// - 60x`name:value` pairs if value is <= 254 bytes, or
+// - 30x`name:value` pairs if values are up to 254*2 bytes.
 
-string llRemoteLinksetDataRead(key object, string name)
+string RemoteLinksetDataRead(key object, string name)
 {
     // TODO: Lookup table on root prim?
     integer link = 1;
@@ -28,7 +32,7 @@ string llRemoteLinksetDataRead(key object, string name)
     return value;
 }
 
-integer llRemoteLinksetDataWrite(key object, string name, string value)
+integer RemoteLinksetDataWrite(key object, string name, string value)
 {
     if(object != llGetKey()) return 6; // Currently only allow writing from own object to keep the implementation straightforward
     
@@ -43,22 +47,38 @@ integer llRemoteLinksetDataWrite(key object, string name, string value)
     return LINKSETDATA_OK;
 }
 
+
+
+// INTERNAL -- Rebuild entire remote dataset, this is not efficient but it keeps the implementation robust, avoiding defragmentation issues
 RebuildRemoteLinksetData()
 {
-    // Rebuild entire remote dataset, this is not efficient but it keeps the implementation robust, avoiding defragmentation issues
     list params;
-    list names = llLinksetDataFindKeys("^Remote.", 0, 0);
+    llSetLinkPrimitiveParamsFast(LINK_ALL_CHILDREN, [
+        PRIM_NAME, "-",
+        PRIM_TEXT, "", <0, 0, 0>, 0,
+        
+        // Debug
+        PRIM_COLOR, 0, <0, 0, 0>, 1,
+        PRIM_TEXTURE, 0, TEXTURE_BLANK, <1,1,0>, <0,0,0>, 0,
+        PRIM_FULLBRIGHT, 0, TRUE
+    ]);
+    
+    list names = llLinksetDataFindKeys("^Remote\\.", 0, 0);
     integer link = 2;
     integer index;
     integer count = llGetListLength(names);
+    vector lastColor;
     for(; index < count; ++index)
     {
         string name = llList2String(names, index);
         string value = llLinksetDataRead(name);
         name = llDeleteSubString(name, 0, 6);
         
+        vector color = (vector)llLinksetDataRead("RemoteDebug." + name);
+        while(color == ZERO_VECTOR || color * lastColor > 0.8) llLinksetDataWrite("RemoteDebug." + name, string(color = llVecNorm(<llFrand(1), llFrand(1), llFrand(1)>)));
+        lastColor = color;
+        
         integer chunks = llCeil(llStringLength(value) / 254.);
-        // vector color = llVecNorm(<llFrand(1), llFrand(1), llFrand(1)>);
         while(chunks --> 0)
         {
             string chunk = llGetSubString(value, 0, 253);
@@ -66,27 +86,13 @@ RebuildRemoteLinksetData()
             params += [
                 PRIM_LINK_TARGET, link++,
                 PRIM_NAME, name,
-                PRIM_TEXT, chunk, <0, 0, 0>, 0
+                PRIM_TEXT, chunk, <0, 0, 0>, 0,
                 
                 // Debug
-                // PRIM_COLOR, 0, color, 1,
-                // PRIM_TEXTURE, 0, TEXTURE_BLANK, <1,1,0>, <0,0,0>, 0,
-                // PRIM_FULLBRIGHT, 0, TRUE
+                PRIM_COLOR, 0, color, 1
             ];
         }
     }
-    
-    // Clear out any old data that is no longer used
-    integer prims = llGetNumberOfPrims();
-    while(link <= prims) params += [
-        PRIM_LINK_TARGET, link++,
-        PRIM_NAME, "-",
-        PRIM_TEXT, "", <0, 0, 0>, 0
-        
-        // Debug
-        // PRIM_COLOR, 0, <0, 0, 0>, 1,
-        // PRIM_FULLBRIGHT, 0, 0
-    ];
     
     // TODO: Lookup table on root prim?
     
