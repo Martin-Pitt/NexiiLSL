@@ -14,6 +14,8 @@
 
 string RemoteLinksetDataRead(key object, string name)
 {
+    if(object != llGetKey()) return llLinksetDataRead("Remote." + name);
+    
     // TODO: Lookup table on root prim?
     integer link = 1;
     @remoteReadSearch;
