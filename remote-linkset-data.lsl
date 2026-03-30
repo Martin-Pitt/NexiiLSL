@@ -55,18 +55,12 @@ integer RemoteLinksetDataWrite(key object, string name, string value)
 RebuildRemoteLinksetData()
 {
     list params;
-    llSetLinkPrimitiveParamsFast(LINK_ALL_CHILDREN, [
-        PRIM_NAME, "-",
-        PRIM_TEXT, "", <0, 0, 0>, 0,
-        
-        // Debug
-        PRIM_COLOR, 0, <0, 0, 0>, 1,
-        PRIM_TEXTURE, 0, TEXTURE_BLANK, <1,1,0>, <0,0,0>, 0,
-        PRIM_FULLBRIGHT, 0, TRUE
-    ]);
     
     list names = llLinksetDataFindKeys("^Remote\\.", 0, 0);
     integer link = 2;
+    #ifdef RLSD_LINK_START
+    link = RLSD_LINK_START;
+    #endif
     integer index;
     integer count = llGetListLength(names);
     vector lastColor;
@@ -88,15 +82,23 @@ RebuildRemoteLinksetData()
             params += [
                 PRIM_LINK_TARGET, link++,
                 PRIM_NAME, name,
-                PRIM_TEXT, chunk, <0, 0, 0>, 0,
+                PRIM_TEXT, chunk, <0, 0, 0>, 0
                 
-                // Debug
-                PRIM_COLOR, 0, color, 1
+                #ifdef RLSD_DISPLAY
+                , PRIM_COLOR, 0, color, 1
+                #endif
             ];
         }
     }
     
     // TODO: Lookup table on root prim?
     
-    llSetLinkPrimitiveParamsFast(0, params);
+    llSetLinkPrimitiveParamsFast(LINK_ALL_CHILDREN, [
+        PRIM_NAME, "-",
+        PRIM_TEXT, "", <0, 0, 0>, 0
+        
+        #ifdef RLSD_DISPLAY
+        , PRIM_COLOR, 0, <0, 0, 0>, 1
+        #endif
+    ] + params);
 }
