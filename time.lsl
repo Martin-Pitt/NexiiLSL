@@ -65,3 +65,29 @@ integer TimestampIsBefore(string a, string b)
     if((float)llGetSubString(a, 17, -2) < (float)llGetSubString(b, 17, -2)) return TRUE;
     return FALSE;
 }
+
+// Milliseconds since beginning of month for timestamp
+integer Timestamp2Millisec(string stamp)
+{
+    return (integer)llGetSubString(stamp, 8, 9) * 86400000 + // Days
+        (integer)llGetSubString(stamp, 11, 12) * 3600000 + // Hours
+        (integer)llGetSubString(stamp, 14, 15) * 60000 + // Minutes
+        llRound(((float)llGetSubString(stamp, 17, -2) * 1000.0)) // Seconds.Milliseconds
+        - 617316353; // Offset to fit between [-617316353,2147483547]
+}
+
+// Seconds since timestamp epoch, per https://wiki.secondlife.com/wiki/Stamp2UnixInt
+integer Timestamp2Seconds(string stamp)
+{
+    list parts = llParseString2List(stamp, ["-", "T", ":", "."], []);
+    integer year = llList2Integer(parts, 0) - 1902;
+    if(year >> 31 | year / 136) return 2145916800 * (1 | year >> 31);
+    integer month = ~-llList2Integer(parts, 1);
+    return 86400 * (integer(year * 365.25 + 0.25) - 24837 +
+          month * 30 + (month - (month < 7) >> 1) + (month < 2) -
+          (((year + 2) & 3) > 0) * (month > 1) +
+          (~-llList2Integer(parts, 2))) +
+          llList2Integer(parts, 3) * 3600 +
+          llList2Integer(parts, 4) * 60 +
+          llList2Integer(parts, 5);
+}
