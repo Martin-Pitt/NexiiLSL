@@ -158,63 +158,339 @@ list DamageTypeAsIcon(integer type)
     ];
 }
 
-string DamageTypeAsReason(integer type)
+string DamageTypeAsReason(integer type, key owner, key target)
 {
+    // Picks a uniformly random entry from a list. Avoids the modulo bias
+    // of llFrand(64.0) % N and means you never have to update counts when
+    // adding/removing lines.
+    #define PICK(l) llList2String(l, (integer)llFrand((float)llGetListLength(l)))
+
+    // ============================================================
+    // ATTACKER vs VICTIM (owner != target)
+    // ============================================================
     #define FRIENDLY_FIRE [\
         "OWNER confirmed TARGET as 'probably hostile'",\
-        "TARGET was eliminated by OWNER's outstanding target identification skills",\
+        "OWNER eliminated TARGET with outstanding target identification skills",\
         "OWNER won the team's internal conflict against TARGET",\
-        "TARGET discovered OWNER's IFF system was decorative",\
+        "OWNER revealed to TARGET that the IFF system was decorative",\
         "OWNER engaged the nearest available lifeform: TARGET",\
-        "TARGET fell to allied fire from OWNER. Emphasis on allied",\
+        "OWNER delivered allied fire to TARGET. Emphasis on allied",\
         "OWNER mistook TARGET for a tactical opportunity",\
-        "TARGET was killed by OWNER's aggressive interpretation of teamwork",\
+        "OWNER killed TARGET with an aggressive interpretation of teamwork",\
         "OWNER secured a friendly kill on TARGET. Mission unclear",\
-        "TARGET learned not to stand between OWNER and bad decisions",\
-        "OWNER demonstrated why positive identification matters TARGET objected briefly",\
-        "TARGET walked into OWNER's extremely friendly burst fire",\
-        "TARGET caught OWNER's suppressive fire non-suppressed",\
-        "TARGET discovered OWNER's safety selector was permanently set to optimism",\
-        "OWNER found TARGET faster than the enemy",\
+        "OWNER taught TARGET not to stand between a squadmate and bad decisions",\
+        "OWNER demonstrated why positive identification matters. TARGET objected briefly",\
+        "OWNER greeted TARGET with extremely friendly burst fire",\
+        "OWNER's suppressive fire caught TARGET non-suppressed",\
+        "OWNER showed TARGET a safety selector permanently set to optimism",\
+        "OWNER found TARGET faster than the enemy did",\
         "OWNER introduced TARGET to friendly fire",\
         "OWNER secured an enemy-adjacent kill on TARGET",\
-        "TARGET was promoted to hostile by OWNER",\
+        "OWNER promoted TARGET to hostile",\
         "OWNER carried the enemy team by killing TARGET",\
-        "TARGET lost an internal faction dispute with OWNER",\
+        "OWNER won an internal faction dispute against TARGET",\
         "OWNER treated TARGET like hostile armor",\
-        "TARGET was killed by OWNER's unwavering confidence and limited accuracy",\
-        "TARGET walked directly into OWNER's line of fire",\
+        "OWNER killed TARGET with unwavering confidence and limited accuracy",\
+        "OWNER's line of fire met TARGET head-on",\
         "OWNER killed TARGET after TARGET challenged basic firearm safety",\
-        "TARGET aggressively occupied OWNER's muzzle space",\
+        "OWNER defended their muzzle space from TARGET",\
         "OWNER shot TARGET, who appeared suddenly and unhelpfully",\
-        "TARGET crossed in front of OWNER's burst fire and won a prize",\
+        "OWNER's burst fire awarded TARGET a prize for crossing it",\
         "OWNER eliminated TARGET, who selected poor timing as a lifestyle",\
-        "TARGET intercepted rounds clearly intended for somebody else",\
+        "OWNER hit TARGET with rounds clearly intended for somebody else",\
         "OWNER's bullets met TARGET halfway",\
-        "TARGET inserted themselves into OWNER's tactical problem",\
+        "OWNER solved a tactical problem that TARGET inserted themselves into",\
         "OWNER killed TARGET after TARGET performed unauthorized bullet interception",\
-        "TARGET peeked exactly where OWNER was already shooting",\
+        "OWNER was already shooting exactly where TARGET peeked",\
         "OWNER dropped TARGET, who entered the doorway at maximum inconvenience",\
-        "TARGET hugged the enemy while OWNER was engaging the enemy",\
+        "OWNER engaged the enemy while TARGET was hugging it",\
         "OWNER's suppressive fire was suppressed by TARGET's positioning",\
-        "TARGET discovered why you don't cross the firing lane OWNER demonstrated",\
+        "OWNER demonstrated why you don't cross the firing lane. TARGET volunteered",\
         "OWNER secured a friendly kill after TARGET sprinted through active gunfire",\
-        "TARGET performed close-quarters teamwork incorrectly near OWNER",\
+        "OWNER penalized TARGET for performing close-quarters teamwork incorrectly",\
         "OWNER shot TARGET, who materialized directly in the optic picture",\
-        "TARGET tested OWNER's trigger discipline at point-blank range",\
+        "OWNER failed a trigger discipline test administered by TARGET at point-blank range",\
         "OWNER accidentally fulfilled TARGET's request for covering fire",\
-        "TARGET treated OWNER's firing lane as a shortcut",\
+        "OWNER charged TARGET full price for using the firing lane as a shortcut",\
         "OWNER killed TARGET, who confused suppressive fire with navigational guidance",\
-        "TARGET successfully identified where OWNER was shooting by standing there",\
+        "OWNER confirmed TARGET located the line of fire by standing in it",\
         "OWNER eliminated TARGET after TARGET ignored several visible warning signs",\
-        "TARGET attempted advanced teamwork without situational awareness. OWNER intervened",\
+        "OWNER intervened in TARGET's attempt at advanced teamwork without situational awareness",\
         "OWNER shot TARGET, who committed aggressively to being in the way",\
-        "TARGET became an unexpected variable in OWNER's ballistic calculations",\
+        "OWNER's ballistic calculations gained an unexpected variable: TARGET",\
         "OWNER's aim was fine. TARGET's pathfinding was not",\
-        "TARGET inserted themselves between OWNER and success",\
+        "OWNER cleared TARGET out from between themselves and success",\
         "OWNER killed TARGET after TARGET made themselves tactically unavoidable"\
     ]
     #define IMPACT [\
+        "OWNER knocked TARGET into a wall",\
+        "OWNER slammed TARGET into cover",\
+        "OWNER sent TARGET crashing into terrain",\
+        "OWNER introduced TARGET to the ground at speed",\
+        "OWNER forced TARGET into a fatal collision",\
+        "OWNER's fire cancelled TARGET's momentum permanently",\
+        "OWNER knocked TARGET off balance and into solid concrete",\
+        "OWNER pressured TARGET into pancaking against the environment",\
+        "OWNER turned gravity against TARGET",\
+        "OWNER arranged a high-speed argument between TARGET and physics. Physics won"\
+    ]
+    #define GENERIC [\
+        "OWNER killed TARGET",\
+        "OWNER eliminated TARGET",\
+        "OWNER took down TARGET",\
+        "OWNER neutralized TARGET",\
+        "OWNER removed TARGET from the battlefield",\
+        "OWNER put TARGET down",\
+        "OWNER dropped TARGET",\
+        "OWNER defeated TARGET",\
+        "OWNER finished TARGET",\
+        "OWNER took TARGET out of the fight"\
+    ]
+    #define ACID [\
+        "OWNER dissolved TARGET with corrosives",\
+        "OWNER melted TARGET with a chemical attack",\
+        "OWNER splashed TARGET with lethal acid",\
+        "OWNER delivered a corrosive payload directly to TARGET",\
+        "OWNER reduced TARGET's gear to sludge",\
+        "OWNER chemically erased TARGET",\
+        "OWNER turned chemistry into a weapon against TARGET",\
+        "OWNER's acid attack proved too much for TARGET",\
+        "OWNER corroded TARGET beyond repair",\
+        "OWNER liquefied TARGET"\
+    ]
+    #define BLUDGEONING [\
+        "OWNER beat TARGET down",\
+        "OWNER crushed TARGET with blunt force",\
+        "OWNER smashed TARGET into submission",\
+        "OWNER landed a fatal blunt hit on TARGET",\
+        "OWNER battered TARGET into the dirt",\
+        "OWNER flattened TARGET",\
+        "OWNER hammered TARGET",\
+        "OWNER's heavy impact ended TARGET",\
+        "OWNER delivered overwhelming blunt trauma to TARGET",\
+        "OWNER broke TARGET with a single strike"\
+    ]
+    #define COLD [\
+        "OWNER froze TARGET solid",\
+        "OWNER's cryogenic attack claimed TARGET",\
+        "OWNER chilled TARGET beyond recovery",\
+        "OWNER iced TARGET over",\
+        "OWNER turned TARGET into a frozen casualty",\
+        "OWNER subjected TARGET to lethal cold exposure",\
+        "OWNER locked TARGET down with extreme cold",\
+        "OWNER left TARGET frozen mid-fight",\
+        "OWNER weaponized winter against TARGET",\
+        "OWNER won the heat war against TARGET"\
+    ]
+    #define ELECTRIC [\
+        "OWNER electrocuted TARGET",\
+        "OWNER shocked TARGET to death",\
+        "OWNER overloaded TARGET with electricity",\
+        "OWNER delivered lethal voltage to TARGET",\
+        "OWNER lit TARGET up with electrical discharge",\
+        "OWNER shut down TARGET's nervous system",\
+        "OWNER short-circuited TARGET",\
+        "OWNER applied a high-voltage solution to TARGET",\
+        "OWNER fried TARGET",\
+        "OWNER made TARGET spark out"\
+    ]
+    #define FIRE [\
+        "OWNER burned TARGET alive",\
+        "OWNER incinerated TARGET",\
+        "OWNER engulfed TARGET in flames",\
+        "OWNER cooked TARGET with incendiaries",\
+        "OWNER reduced TARGET to ashes",\
+        "OWNER set TARGET on fire. Permanently",\
+        "OWNER scorched TARGET off the battlefield",\
+        "OWNER won the thermal exchange with TARGET",\
+        "OWNER roasted TARGET",\
+        "OWNER's flames consumed TARGET"\
+    ]
+    #define FORCE [\
+        "OWNER blasted TARGET apart",\
+        "OWNER launched TARGET",\
+        "OWNER overwhelmed TARGET with raw force",\
+        "OWNER hit TARGET with a fatal shockwave",\
+        "OWNER hit TARGET with devastating force",\
+        "OWNER's impact proved unsurvivable for TARGET",\
+        "OWNER violently displaced TARGET",\
+        "OWNER freight-trained TARGET",\
+        "OWNER crushed TARGET with concussive power",\
+        "OWNER blew TARGET clean off their position"\
+    ]
+    #define NECROTIC [\
+        "OWNER drained the life from TARGET",\
+        "OWNER withered TARGET away",\
+        "OWNER consumed TARGET's vitality",\
+        "OWNER accelerated TARGET's decay considerably",\
+        "OWNER left TARGET biologically ruined",\
+        "OWNER's lethal touch faded TARGET out",\
+        "OWNER reduced TARGET to a husk",\
+        "OWNER outlasted TARGET's life force",\
+        "OWNER brought slow death to TARGET",\
+        "OWNER's necrotic damage claimed TARGET"\
+    ]
+    #define PIERCING [\
+        "OWNER riddled TARGET with bullets",\
+        "OWNER cut TARGET down with rifle fire",\
+        "OWNER stitched TARGET with automatic fire",\
+        "OWNER put a burst into TARGET",\
+        "OWNER perforated TARGET with incoming rounds",\
+        "OWNER drilled TARGET with gunfire",\
+        "OWNER landed center-mass hits on TARGET",\
+        "OWNER won the firefight against TARGET",\
+        "OWNER filled TARGET with lead",\
+        "OWNER ventilated TARGET"\
+    ]
+    #define POISON [\
+        "OWNER poisoned TARGET",\
+        "OWNER's toxins claimed TARGET",\
+        "OWNER contaminated TARGET fatally",\
+        "OWNER chemically deteriorated TARGET",\
+        "OWNER dosed TARGET with lethal poison",\
+        "OWNER convinced TARGET's body to give up",\
+        "OWNER weaponized toxins against TARGET",\
+        "OWNER's poison ran its full course on TARGET",\
+        "OWNER delivered a toxic end to TARGET",\
+        "OWNER gave TARGET a fatal chemical exposure"\
+    ]
+    #define PSYCHIC [\
+        "OWNER shattered TARGET's mind",\
+        "OWNER caused TARGET's complete mental collapse",\
+        "OWNER overwhelmed TARGET psychologically",\
+        "OWNER out-thought TARGET fatally",\
+        "OWNER broke TARGET mentally",\
+        "OWNER won the cognitive battle against TARGET",\
+        "OWNER overloaded TARGET's mind",\
+        "OWNER psychologically neutralized TARGET",\
+        "OWNER destabilized TARGET completely",\
+        "OWNER gave TARGET more than TARGET could process"\
+    ]
+    #define RADIANT [\
+        "OWNER overwhelmed TARGET with radiant energy",\
+        "OWNER burned TARGET with radiation",\
+        "OWNER blasted TARGET with destructive light",\
+        "OWNER made TARGET glow. Briefly",\
+        "OWNER irradiated TARGET fatally",\
+        "OWNER's energy discharge claimed TARGET",\
+        "OWNER seared TARGET with pure energy",\
+        "OWNER outshone TARGET fatally",\
+        "OWNER exposed TARGET to lethal radiation",\
+        "OWNER annihilated TARGET with raw energy"\
+    ]
+    #define SLASHING [\
+        "OWNER cut TARGET down",\
+        "OWNER carved TARGET apart",\
+        "OWNER opened TARGET up",\
+        "OWNER's blade met TARGET. Once was enough",\
+        "OWNER sliced through TARGET",\
+        "OWNER left TARGET with fatal cuts",\
+        "OWNER shredded TARGET",\
+        "OWNER tore TARGET apart",\
+        "OWNER made short work of TARGET",\
+        "OWNER showed TARGET the sharp end"\
+    ]
+    #define SONIC [\
+        "OWNER blasted TARGET with sonic force",\
+        "OWNER collapsed TARGET's senses",\
+        "OWNER overwhelmed TARGET with pressure waves",\
+        "OWNER's sonic blast proved fatal for TARGET",\
+        "OWNER deafened TARGET permanently",\
+        "OWNER rocked TARGET with acoustic weaponry",\
+        "OWNER weaponized sound against TARGET",\
+        "OWNER won the volume war against TARGET",\
+        "OWNER shattered TARGET with sonic energy",\
+        "OWNER concussed TARGET with a sonic assault"\
+    ]
+    #define EMOTIONAL [\
+        "OWNER emotionally devastated TARGET",\
+        "OWNER collapsed TARGET's morale entirely",\
+        "OWNER broke TARGET's spirit",\
+        "OWNER dealt critical emotional damage to TARGET",\
+        "OWNER crushed TARGET's confidence",\
+        "OWNER won the psychological war against TARGET",\
+        "OWNER destroyed TARGET's morale",\
+        "OWNER applied pressure TARGET never recovered from",\
+        "OWNER left TARGET mentally defeated",\
+        "OWNER made sure TARGET took the loss personally"\
+    ]
+    #define MEDICAL [\
+        "OWNER's treatment killed TARGET",\
+        "OWNER's medical intervention proved fatal to TARGET",\
+        "OWNER flatlined TARGET during treatment",\
+        "OWNER gave TARGET one treatment too many",\
+        "OWNER's battlefield medicine failed TARGET catastrophically",\
+        "OWNER's bedside manner killed TARGET",\
+        "OWNER healed TARGET into the afterlife",\
+        "OWNER's medkit betrayed TARGET's trust",\
+        "OWNER's treatment proved terminal for TARGET",\
+        "OWNER medically neutralized TARGET"\
+    ]
+    #define REPAIR [\
+        "OWNER repaired TARGET into catastrophic failure",\
+        "OWNER's maintenance proved unsurvivable for TARGET",\
+        "OWNER's field repairs ended TARGET",\
+        "OWNER performed rapid unscheduled disassembly on TARGET",\
+        "OWNER pushed TARGET beyond operational limits",\
+        "OWNER's repair attempt finished TARGET off",\
+        "OWNER turned maintenance into a kill",\
+        "OWNER's adjustments collapsed TARGET's systems",\
+        "OWNER overclocked TARGET to destruction",\
+        "OWNER rendered TARGET permanently nonfunctional"\
+    ]
+    #define EXPLOSIVE [\
+        "OWNER blew TARGET apart",\
+        "OWNER caught TARGET in the blast radius",\
+        "OWNER introduced TARGET to high explosives",\
+        "OWNER fed TARGET a grenade",\
+        "OWNER detonated TARGET",\
+        "OWNER's explosives outran TARGET",\
+        "OWNER erased TARGET with a blast",\
+        "OWNER's detonation shredded TARGET",\
+        "OWNER reduced TARGET to debris",\
+        "OWNER's ordnance found TARGET standing too close"\
+    ]
+    #define CRUSHING [\
+        "OWNER crushed TARGET",\
+        "OWNER flattened TARGET completely",\
+        "OWNER compressed TARGET into failure",\
+        "OWNER pinned and crushed TARGET",\
+        "OWNER turned pressure into a weapon against TARGET",\
+        "OWNER folded TARGET like field equipment",\
+        "OWNER reduced TARGET to scrap",\
+        "OWNER compacted TARGET",\
+        "OWNER buried TARGET under overwhelming pressure",\
+        "OWNER ran a compression test on TARGET. TARGET failed"\
+    ]
+    #define ANTI_ARMOR [\
+        "OWNER punched through TARGET's armor",\
+        "OWNER penetrated TARGET with anti-armor fire",\
+        "OWNER defeated TARGET with AP rounds",\
+        "OWNER proved TARGET's armor was a suggestion",\
+        "OWNER cracked TARGET open with anti-vehicle fire",\
+        "OWNER's penetrators went straight through TARGET",\
+        "OWNER turned TARGET's armor into a liability",\
+        "OWNER gutted TARGET with heavy ordnance",\
+        "OWNER landed a clean anti-armor kill on TARGET",\
+        "OWNER won the armor check against TARGET"\
+    ]
+    #define SUFFOCATION [\
+        "OWNER deprived TARGET of oxygen",\
+        "OWNER suffocated TARGET",\
+        "OWNER left TARGET without breathable air",\
+        "OWNER ran TARGET out of air",\
+        "OWNER choked the life out of TARGET",\
+        "OWNER removed breathing from TARGET's options",\
+        "OWNER turned atmosphere into a privilege TARGET didn't have",\
+        "OWNER revoked TARGET's oxygen access",\
+        "OWNER asphyxiated TARGET",\
+        "OWNER reminded TARGET that breathing was mandatory. Too late"\
+    ]
+
+    // ============================================================
+    // SELF-INFLICTED (owner == target) — TARGET-only phrasing
+    // ============================================================
+    #define IMPACT_SELF [\
         "TARGET punched the ground. The ground punched back",\
         "TARGET tested the structural integrity of a nearby wall",\
         "TARGET tested the structural integrity of a nearby floor",\
@@ -252,269 +528,217 @@ string DamageTypeAsReason(integer type)
         "TARGET achieved excellent airtime and poor decision-making",\
         "TARGET discovered a new route directly into the ground",\
         "TARGET attempted vertical gameplay and received horizontal consequences",\
-        "TARGET became one with nearby infrastructure",\
-        "OWNER knocked TARGET into a wall",\
-        "TARGET slammed into cover after OWNER's attack",\
-        "OWNER sent TARGET crashing into terrain",\
-        "TARGET hit the ground hard thanks to OWNER",\
-        "OWNER forced TARGET into a fatal collision",\
-        "TARGET lost momentum after meeting OWNER's fire",\
-        "OWNER knocked TARGET off balance and into solid concrete",\
-        "TARGET pancaked into the environment under pressure from OWNER",\
-        "OWNER turned gravity against TARGET",\
-        "TARGET lost a high-speed argument with physics courtesy of OWNER"\
+        "TARGET became one with nearby infrastructure"\
     ]
-    #define GENERIC [\
-        "OWNER killed TARGET",\
-        "TARGET was eliminated by OWNER",\
-        "OWNER took down TARGET",\
-        "TARGET was neutralized by OWNER",\
-        "OWNER removed TARGET from the battlefield",\
-        "TARGET fell to OWNER",\
-        "OWNER dropped TARGET",\
-        "TARGET was defeated by OWNER",\
-        "OWNER finished TARGET",\
-        "TARGET was taken out by OWNER"\
+    #define GENERIC_SELF [\
+        "TARGET eliminated TARGET. Efficient",\
+        "TARGET cut out the middleman and killed themselves",\
+        "TARGET found the enemy. It was TARGET",\
+        "TARGET secured a confirmed kill on TARGET",\
+        "TARGET defeated their greatest opponent: TARGET",\
+        "TARGET needed no assistance dying",\
+        "TARGET took themselves out of the fight",\
+        "TARGET saved the enemy some ammunition"\
     ]
-    #define ACID [\
-        "OWNER dissolved TARGET with corrosives",\
-        "TARGET melted under OWNER's chemical attack",\
-        "OWNER splashed TARGET with lethal acid",\
-        "TARGET succumbed to OWNER's corrosive payload",\
-        "OWNER reduced TARGET's gear to sludge",\
-        "TARGET was chemically erased by OWNER",\
-        "OWNER turned chemistry into a weapon against TARGET",\
-        "TARGET couldn't withstand OWNER's acid attack",\
-        "OWNER corroded TARGET beyond repair",\
-        "TARGET dissolved under OWNER's assault"\
+    #define ACID_SELF [\
+        "TARGET dissolved in their own corrosives",\
+        "TARGET learned that acid doesn't check IFF",\
+        "TARGET became the test subject of their own chemistry experiment",\
+        "TARGET stored the acid incorrectly: on themselves",\
+        "TARGET handled corrosives with confidence instead of gloves",\
+        "TARGET's chemical weapon chose violence locally",\
+        "TARGET self-liquefied",\
+        "TARGET reduced their own gear, and TARGET, to sludge"\
     ]
-    #define BLUDGEONING [\
-        "OWNER beat TARGET down",\
-        "TARGET was crushed by OWNER's blunt force",\
-        "OWNER smashed TARGET into submission",\
-        "TARGET took a fatal blunt hit from OWNET",\
-        "OWNER battered TARGET into the dirt",\
-        "TARGET was flattened by OWNER",\
-        "OWNER hammered TARGET",\
-        "TARGET couldn't survive OWNER's heavy impact",\
-        "OWNER delivered overwhelming blunt trauma to TARGET",\
-        "TARGET was broken by OWNER's strike"\
+    #define BLUDGEONING_SELF [\
+        "TARGET beat themselves to the punch. Fatally",\
+        "TARGET delivered blunt trauma to the nearest available skull: their own",\
+        "TARGET lost a fistfight against their own equipment",\
+        "TARGET swung hard and connected with TARGET",\
+        "TARGET self-administered percussive maintenance",\
+        "TARGET was somehow on both ends of the hammer",\
+        "TARGET flattened the closest combatant: TARGET",\
+        "TARGET hammered themselves into the dirt unassisted"\
     ]
-    #define COLD [\
-        "OWNER froze TARGET solid",\
-        "TARGET succumbed to OWNER's cryogenic attack",\
-        "OWNER chilled TARGET beyond recovery",\
-        "TARGET iced over under OWNER's assault",\
-        "OWNER turned TARGET into a frozen casualty",\
-        "TARGET could not survive OWNER's cold exposure",\
-        "OWNER locked TARGET down with extreme cold",\
-        "TARGET froze to death fighting OWNER",\
-        "OWNER weaponized winter against TARGET",\
-        "TARGET lost the heat war against OWNER"\
+    #define COLD_SELF [\
+        "TARGET froze themselves solid",\
+        "TARGET stress-tested their own cryogenics from the inside",\
+        "TARGET achieved self-refrigeration",\
+        "TARGET forgot which end of the cryo weapon was the cold one",\
+        "TARGET preserved themselves for future generations",\
+        "TARGET lost the heat war against TARGET",\
+        "TARGET turned themselves into a frozen casualty",\
+        "TARGET weaponized winter against the only person in range: TARGET"\
     ]
-    #define ELECTRIC [\
-        "OWNER electrocuted TARGET",\
-        "TARGET was shocked to death by OWNER",\
-        "OWNER overloaded TARGET with electricity",\
-        "TARGET caught lethal voltage from OWNER",\
-        "OWNER lit TARGET up with electrical discharge",\
-        "TARGET's nervous system failed under OWNER's attack",\
-        "OWNER short-circuited TARGET",\
-        "TARGET couldn't handle OWNER's high-voltage solution",\
-        "OWNER fried TARGET",\
-        "TARGET sparked out under OWNER's assault"\
+    #define ELECTRIC_SELF [\
+        "TARGET electrocuted themselves",\
+        "TARGET completed the circuit personally",\
+        "TARGET discovered they were the path of least resistance",\
+        "TARGET grounded themselves. Permanently",\
+        "TARGET conducted a one-person electrical safety demonstration",\
+        "TARGET's high-voltage solution solved TARGET",\
+        "TARGET short-circuited their own nervous system",\
+        "TARGET fried the nearest conductor: TARGET"\
     ]
-    #define FIRE [\
-        "OWNER burned TARGET alive",\
-        "TARGET was incinerated by OWNER",\
-        "OWNER engulfed TARGET in flames",\
-        "TARGET cooked under OWNER's incendiaries",\
-        "OWNER reduced TARGET to ashes",\
-        "TARGET caught fire thanks to OWNER",\
-        "OWNER scorched TARGET off the battlefield",\
-        "TARGET lost the thermal exchange with OWNER",\
-        "OWNER roasted TARGET",\
-        "TARGET was consumed by OWNER's flames"\
+    #define FIRE_SELF [\
+        "TARGET self-ignited",\
+        "TARGET stood in their own fire and called it warmth",\
+        "TARGET deployed incendiaries at extremely personal range",\
+        "TARGET became their own thermal signature",\
+        "TARGET played with fire and lost custody",\
+        "TARGET achieved self-cremation ahead of schedule",\
+        "TARGET lost the thermal exchange with TARGET",\
+        "TARGET's flames showed no brand loyalty"\
     ]
-    #define FORCE [\
-        "OWNER blasted TARGET apart",\
-        "TARGET was launched by OWNER's attack",\
-        "OWNER overwhelmed TARGET with raw force",\
-        "TARGET absorbed a fatal shockwave from OWNER",\
-        "OWNER hit TARGET with devastating force",\
-        "TARGET couldn't withstand OWNER's impact",\
-        "OWNER violently displaced TARGET",\
-        "TARGET got freight-trained by OWNER",\
-        "OWNER crushed TARGET with concussive power",\
-        "TARGET was blown back by OWNER"\
+    #define FORCE_SELF [\
+        "TARGET blasted themselves apart",\
+        "TARGET stood at the business end of their own shockwave",\
+        "TARGET applied devastating force in the wrong direction",\
+        "TARGET freight-trained TARGET",\
+        "TARGET violently displaced themselves",\
+        "TARGET's raw power needed a target. TARGET volunteered",\
+        "TARGET blew themselves clean off their own position",\
+        "TARGET found their own impact unsurvivable"\
     ]
-    #define NECROTIC [\
-        "OWNER drained the life from TARGET",\
-        "TARGET withered under OWNER's attack",\
-        "OWNER consumed TARGET's vitality",\
-        "TARGET decayed under OWNER's assault",\
-        "OWNER left TARGET biologically ruined",\
-        "TARGET faded under OWNER's lethal touch",\
-        "OWNER reduced TARGET to a husk",\
-        "TARGET's life force failed against OWNER",\
-        "OWNER brought slow death to TARGET",\
-        "TARGET succumbed to OWNER's necrotic damage"\
+    #define NECROTIC_SELF [\
+        "TARGET drained their own life force",\
+        "TARGET accelerated their own decay considerably",\
+        "TARGET reduced themselves to a husk",\
+        "TARGET's life force resigned without notice",\
+        "TARGET consumed their own vitality. Bold strategy",\
+        "TARGET brought slow death to the nearest lifeform: TARGET",\
+        "TARGET faded themselves out",\
+        "TARGET left TARGET biologically ruined"\
     ]
-    #define PIERCING [\
-        "OWNER riddled TARGET with bullets",\
-        "TARGET was cut down by OWNER's rifle fire",\
-        "OWNER stitched TARGET with automatic fire",\
-        "TARGET caught a burst from OWNER",\
-        "OWNER perforated TARGET with incoming rounds",\
-        "TARGET was drilled by OWNER's gunfire",\
-        "OWNER landed center-mass hits on TARGET",\
-        "TARGET lost the firefight against OWNER",\
-        "OWNER filled TARGET with lead",\
-        "TARGET was perforated by OWNER"\
+    #define PIERCING_SELF [\
+        "TARGET shot themselves",\
+        "TARGET checked if the gun was loaded the hard way",\
+        "TARGET caught a burst from a familiar rifle: their own",\
+        "TARGET lost a firefight with zero other participants",\
+        "TARGET demonstrated muzzle awareness by counterexample",\
+        "TARGET filled themselves with lead",\
+        "TARGET ventilated TARGET",\
+        "TARGET landed center-mass hits on the wrong center mass"\
     ]
-    #define POISON [\
-        "OWNER poisoned TARGET",\
-        "TARGET succumbed to OWNER's toxins",\
-        "OWNER contaminated TARGET fatally",\
-        "TARGET deteriorated under OWNER's chemicals",\
-        "OWNER dosed TARGET with lethal poison",\
-        "TARGET's body gave out under OWNER's attack",\
-        "OWNER weaponized toxins against TARGET",\
-        "TARGET couldn't survive OWNER's poison",\
-        "OWNER delivered a toxic end to TARGET",\
-        "TARGET died from OWNER's chemical exposure"\
+    #define POISON_SELF [\
+        "TARGET poisoned themselves",\
+        "TARGET taste-tested their own toxins",\
+        "TARGET confused the antidote with the dosage",\
+        "TARGET's chemical weapon worked exactly once, on TARGET",\
+        "TARGET self-administered a lethal dose",\
+        "TARGET trusted their own labeling system incorrectly",\
+        "TARGET's body gave up after consulting with TARGET",\
+        "TARGET delivered a toxic end to TARGET"\
     ]
-    #define PSYCHIC [\
-        "OWNER shattered TARGET's mind",\
-        "TARGET suffered mental collapse under OWNER",\
-        "OWNER overwhelmed TARGET psychologically",\
-        "TARGET's thoughts failed against OWNER",\
-        "OWNER broke TARGET mentally",\
-        "TARGET lost the cognitive battle with OWNER",\
-        "OWNER overloaded TARGET's mind",\
-        "TARGET was psychologically neutralized by OWNER",\
-        "OWNER destabilized TARGET completely",\
-        "TARGET couldn't process OWNER's assault"\
+    #define PSYCHIC_SELF [\
+        "TARGET thought themselves to death",\
+        "TARGET lost an argument inside their own head",\
+        "TARGET's mind overloaded itself",\
+        "TARGET overthought a survivable situation. Fatally",\
+        "TARGET was psychologically neutralized by TARGET",\
+        "TARGET won the cognitive battle and also lost it",\
+        "TARGET shattered their own mind unassisted",\
+        "TARGET gave TARGET more than TARGET could process"\
     ]
-    #define RADIANT [\
-        "OWNER overwhelmed TARGET with radiant energy",\
-        "TARGET was burned by OWNER's radiation",\
-        "OWNER blasted TARGET with destructive light",\
-        "TARGET glowed briefly thanks to OWNER",\
-        "OWNER irradiated TARGET fatally",\
-        "TARGET succumbed to OWNER's energy discharge",\
-        "OWNER seared TARGET with pure energy",\
-        "TARGET lost against OWNER's radiance",\
-        "OWNER exposed TARGET to lethal radiation",\
-        "TARGET was annihilated by OWNER's energy"\
+    #define RADIANT_SELF [\
+        "TARGET irradiated themselves",\
+        "TARGET stood inside their own energy discharge",\
+        "TARGET glowed with self-confidence. Then just glowed",\
+        "TARGET ignored the safe operating distance of their own weapon",\
+        "TARGET achieved self-illumination. Briefly",\
+        "TARGET exposed themselves to lethal radiation. Their own",\
+        "TARGET outshone TARGET fatally",\
+        "TARGET annihilated the closest energy signature: TARGET"\
     ]
-    #define SLASHING [\
-        "OWNER cut TARGET down",\
-        "TARGET was carved apart by OWNER",\
-        "OWNER opened TARGET up",\
-        "TARGET met OWNER's blade",\
-        "OWNER sliced through TARGET",\
-        "TARGET suffered fatal cuts from OWNER",\
-        "OWNER shredded TARGET",\
-        "TARGET was torn apart by OWNER",\
-        "OWNER made short work of TARGET",\
-        "TARGET found the sharp end of OWNER"\
+    #define SLASHING_SELF [\
+        "TARGET cut themselves down",\
+        "TARGET lost a knife fight against TARGET",\
+        "TARGET found the sharp end of their own blade",\
+        "TARGET demonstrated blade safety by counterexample",\
+        "TARGET sliced through the nearest combatant: TARGET",\
+        "TARGET made short work of themselves",\
+        "TARGET opened TARGET up. No assistance required",\
+        "TARGET's blade showed no loyalty"\
     ]
-    #define SONIC [\
-        "OWNER blasted TARGET with sonic force",\
-        "TARGET's senses collapsed under OWNER's attack",\
-        "OWNER overwhelmed TARGET with pressure waves",\
-        "TARGET couldn't survive OWNER's sonic blast",\
-        "OWNER deafened TARGET permanently",\
-        "TARGET was rocked by OWNER's acoustic weaponry",\
-        "OWNER weaponized sound against TARGET",\
-        "TARGET lost the volume war against OWNER",\
-        "OWNER shattered TARGET with sonic energy",\
-        "TARGET was concussed by OWNER's sonic assault"\
+    #define SONIC_SELF [\
+        "TARGET deafened themselves to death",\
+        "TARGET stood inside their own pressure wave",\
+        "TARGET lost the volume war against TARGET",\
+        "TARGET turned the acoustic weapon up to eleven while holding it",\
+        "TARGET concussed themselves with their own bass drop",\
+        "TARGET's sonic blast didn't discriminate",\
+        "TARGET collapsed their own senses",\
+        "TARGET weaponized sound against the closest pair of ears: their own"\
     ]
-    #define EMOTIONAL [\
-        "OWNER emotionally devastated TARGET",\
-        "TARGET's morale collapsed under OWNER",\
-        "OWNER broke TARGET's spirit",\
-        "TARGET suffered critical emotional damage from OWNER",\
-        "OWNER crushed TARGET's confidence",\
-        "TARGET lost the psychological war with OWNER",\
-        "OWNER destroyed TARGET's morale",\
-        "TARGET couldn't recover from OWNER's pressure",\
-        "OWNER left TARGET mentally defeated",\
-        "TARGET took the loss from OWNER personally"\
+    #define EMOTIONAL_SELF [\
+        "TARGET's morale collapsed under TARGET",\
+        "TARGET lost the psychological war with themselves",\
+        "TARGET took the loss personally. From themselves",\
+        "TARGET crushed their own confidence fatally",\
+        "TARGET broke their own spirit before the enemy could",\
+        "TARGET was their own harshest critic. Lethally",\
+        "TARGET applied pressure TARGET never recovered from",\
+        "TARGET emotionally devastated TARGET"\
     ]
-    #define MEDICAL [\
-        "OWNER's treatment killed TARGET",\
-        "TARGET did not survive OWNER's medical intervention",\
-        "OWNER flatlined TARGET during treatment",\
-        "TARGET received one medic too many from OWNER",\
-        "OWNER's battlefield medicine failed TARGET catastrophically",\
-        "TARGET died under OWNER's care",\
-        "OWNER healed TARGET into the afterlife",\
-        "TARGET trusted OWNER's medkit incorrectly",\
-        "OWNER's treatment proved terminal for TARGET",\
-        "TARGET was medically neutralized by OWNER"\
+    #define MEDICAL_SELF [\
+        "TARGET self-medicated into the afterlife",\
+        "TARGET's self-treatment proved terminal",\
+        "TARGET read the medkit instructions posthumously",\
+        "TARGET healed themselves to death",\
+        "TARGET trusted their own medical credentials incorrectly",\
+        "TARGET flatlined under their own care",\
+        "TARGET gave TARGET one treatment too many",\
+        "TARGET's bedside manner killed the only patient available: TARGET"\
     ]
-    #define REPAIR [\
-        "OWNER repaired TARGET into catastrophic failure",\
-        "TARGET did not survive OWNER's maintenance",\
-        "OWNER's field repairs ended TARGET",\
-        "TARGET experienced rapid unscheduled disassembly by OWNER",\
-        "OWNER pushed TARGET beyond operational limits",\
-        "TARGET failed under OWNER's repair attempt",\
-        "OWNER turned maintenance into a kill",\
-        "TARGET's systems collapsed under OWNER's adjustments",\
-        "OWNER overclocked TARGET to destruction",\
-        "TARGET became nonfunctional thanks to OWNER"\
+    #define REPAIR_SELF [\
+        "TARGET repaired themselves into catastrophic failure",\
+        "TARGET performed rapid unscheduled self-disassembly",\
+        "TARGET overclocked themselves to destruction",\
+        "TARGET voided their own warranty",\
+        "TARGET's self-maintenance proved unsurvivable",\
+        "TARGET pushed TARGET beyond operational limits",\
+        "TARGET turned self-maintenance into a confirmed kill",\
+        "TARGET rendered TARGET permanently nonfunctional"\
     ]
-    #define EXPLOSIVE [\
-        "OWNER blew TARGET apart",\
-        "TARGET was caught in OWNER's blast radius",\
-        "OWNER introduced TARGET to high explosives",\
-        "TARGET ate OWNER's grenade",\
-        "OWNER detonated TARGET",\
-        "TARGET couldn't outrun OWNER's explosives",\
-        "OWNER erased TARGET with a blast",\
-        "TARGET was shredded by OWNER's detonation",\
-        "OWNER reduced TARGET to debris",\
-        "TARGET stood too close to OWNER's ordnance"\
+    #define EXPLOSIVE_SELF [\
+        "TARGET held the grenade slightly too long",\
+        "TARGET stood in their own blast radius",\
+        "TARGET cooked a grenade past the recommended doneness",\
+        "TARGET became the epicenter",\
+        "TARGET's ordnance arrived before TARGET left",\
+        "TARGET reduced themselves to debris",\
+        "TARGET couldn't outrun their own explosives",\
+        "TARGET ate their own grenade. Chef's kiss"\
     ]
-    #define CRUSHING [\
-        "OWNER crushed TARGET",\
-        "TARGET was flattened by OWNER",\
-        "OWNER compressed TARGET into failure",\
-        "TARGET was pinned and crushed by OWNER",\
-        "OWNER turned pressure into a weapon against TARGET",\
-        "TARGET folded under OWNER's force",\
-        "OWNER reduced TARGET to scrap",\
-        "TARGET was compacted by OWNER",\
-        "OWNER buried TARGET under overwhelming pressure",\
-        "TARGET lost the compression test against OWNER"\
+    #define CRUSHING_SELF [\
+        "TARGET crushed themselves",\
+        "TARGET was flattened by their own equipment",\
+        "TARGET ran a compression test on TARGET. Both sides failed",\
+        "TARGET parked something heavy on top of themselves",\
+        "TARGET folded under pressure of their own making",\
+        "TARGET compacted themselves for easy storage",\
+        "TARGET reduced TARGET to scrap",\
+        "TARGET turned pressure into a weapon against the only one in range: TARGET"\
     ]
-    #define ANTI_ARMOR [\
-        "OWNER punched through TARGET's armor",\
-        "TARGET was penetrated by OWNER's anti-armor fire",\
-        "OWNER defeated TARGET with AP rounds",\
-        "TARGET's armor failed against OWNER",\
-        "OWNER cracked TARGET open with anti-vehicle fire",\
-        "TARGET couldn't stop OWNER's penetrators",\
-        "OWNER turned TARGET's armor into a liability",\
-        "TARGET was gutted by OWNER's heavy ordnance",\
-        "OWNER landed a clean anti-armor kill on TARGET",\
-        "TARGET lost the armor check against OWNER"\
+    #define ANTI_ARMOR_SELF [\
+        "TARGET penetrated their own armor",\
+        "TARGET proved their own armor was a suggestion",\
+        "TARGET tested AP rounds on the nearest armor: their own",\
+        "TARGET turned their armor into a liability personally",\
+        "TARGET cracked themselves open with anti-vehicle fire",\
+        "TARGET won and lost the armor check simultaneously",\
+        "TARGET's penetrators went straight through TARGET",\
+        "TARGET gutted TARGET with heavy ordnance. Impressive angle"\
     ]
-    #define SUFFOCATION [\
-        "OWNER deprived TARGET of oxygen",\
-        "TARGET suffocated because of OWNER",\
-        "OWNER left TARGET without breathable air",\
-        "TARGET ran out of air fighting OWNER",\
-        "OWNER choked the life out of TARGET",\
-        "TARGET couldn't breathe under OWNER's attack",\
-        "OWNER turned atmosphere into a privilege TARGET didn't have",\
-        "TARGET lost oxygen access thanks to OWNER",\
-        "OWNER asphyxiated TARGET",\
-        "TARGET forgot breathing was mandatory while fighting OWNER"\
+    #define SUFFOCATION_SELF [\
+        "TARGET forgot breathing was mandatory",\
+        "TARGET ran out of air with no help from anyone",\
+        "TARGET revoked their own oxygen access",\
+        "TARGET held their breath competitively against themselves",\
+        "TARGET treated oxygen as optional",\
+        "TARGET asphyxiated unassisted",\
+        "TARGET removed breathing from their own options",\
+        "TARGET turned atmosphere into a privilege TARGET didn't have"\
     ]
     #define REDEPLOY [\
         "TARGET redeployed to a new position",\
@@ -538,34 +762,76 @@ string DamageTypeAsReason(integer type)
         "TARGET left to spawn somewhere less explosive",\
         "TARGET took a strategic timeout"\
     ]
-    
-    integer variant = (integer)llFrand(64.0);
-    if(type == DAMAGE_TYPE_IMPACT) return llList2String(IMPACT, variant % 48);
-    if(type == DAMAGE_TYPE_GENERIC) return llList2String(GENERIC, variant % 10);
-    if(type == DAMAGE_TYPE_ACID) return llList2String(ACID, variant % 10);
-    if(type == DAMAGE_TYPE_BLUDGEONING) return llList2String(BLUDGEONING, variant % 10);
-    if(type == DAMAGE_TYPE_COLD) return llList2String(COLD, variant % 10);
-    if(type == DAMAGE_TYPE_ELECTRIC) return llList2String(ELECTRIC, variant % 10);
-    if(type == DAMAGE_TYPE_FIRE) return llList2String(FIRE, variant % 10);
-    if(type == DAMAGE_TYPE_FORCE) return llList2String(FORCE, variant % 10);
-    if(type == DAMAGE_TYPE_NECROTIC) return llList2String(NECROTIC, variant % 10);
-    if(type == DAMAGE_TYPE_PIERCING) return llList2String(PIERCING, variant % 10);
-    if(type == DAMAGE_TYPE_POISON) return llList2String(POISON, variant % 10);
-    if(type == DAMAGE_TYPE_PSYCHIC) return llList2String(PSYCHIC, variant % 10);
-    if(type == DAMAGE_TYPE_RADIANT) return llList2String(RADIANT, variant % 10);
-    if(type == DAMAGE_TYPE_SLASHING) return llList2String(SLASHING, variant % 10);
-    if(type == DAMAGE_TYPE_SONIC) return llList2String(SONIC, variant % 10);
-    if(type == DAMAGE_TYPE_EMOTIONAL) return llList2String(EMOTIONAL, variant % 10);
-    if(type == DAMAGE_TYPE_MEDICAL) return llList2String(MEDICAL, variant % 10);
-    if(type == DAMAGE_TYPE_REPAIR) return llList2String(REPAIR, variant % 10);
-    if(type == DAMAGE_TYPE_EXPLOSIVE) return llList2String(EXPLOSIVE, variant % 10);
-    if(type == DAMAGE_TYPE_CRUSHING) return llList2String(CRUSHING, variant % 10);
-    if(type == DAMAGE_TYPE_ANTI_ARMOR) return llList2String(ANTI_ARMOR, variant % 10);
-    if(type == DAMAGE_TYPE_SUFFOCATION) return llList2String(SUFFOCATION, variant % 10);
-    if(type == DAMAGE_TYPE_REDEPLOY) return llList2String(REDEPLOY, variant % 20);
-    if(type == -100) return llList2String(FRIENDLY_FIRE, variant % 52);
-    return "TARGET was killed by OWNER's " + DamageTypeAsNoun(type) + " damage";
+
+    string reason;
+
+    // Redeploy is always a voluntary self-action, regardless of who is credited
+    if(type == DAMAGE_TYPE_REDEPLOY)
+    {
+        reason = PICK(REDEPLOY);
+    }
+    else if(owner == target)
+    {
+        // Self-inflicted: TARGET-only phrasing, no attacker credit
+        if(type == DAMAGE_TYPE_IMPACT) reason = PICK(IMPACT_SELF);
+        else if(type == DAMAGE_TYPE_GENERIC) reason = PICK(GENERIC_SELF);
+        else if(type == DAMAGE_TYPE_ACID) reason = PICK(ACID_SELF);
+        else if(type == DAMAGE_TYPE_BLUDGEONING) reason = PICK(BLUDGEONING_SELF);
+        else if(type == DAMAGE_TYPE_COLD) reason = PICK(COLD_SELF);
+        else if(type == DAMAGE_TYPE_ELECTRIC) reason = PICK(ELECTRIC_SELF);
+        else if(type == DAMAGE_TYPE_FIRE) reason = PICK(FIRE_SELF);
+        else if(type == DAMAGE_TYPE_FORCE) reason = PICK(FORCE_SELF);
+        else if(type == DAMAGE_TYPE_NECROTIC) reason = PICK(NECROTIC_SELF);
+        else if(type == DAMAGE_TYPE_PIERCING) reason = PICK(PIERCING_SELF);
+        else if(type == DAMAGE_TYPE_POISON) reason = PICK(POISON_SELF);
+        else if(type == DAMAGE_TYPE_PSYCHIC) reason = PICK(PSYCHIC_SELF);
+        else if(type == DAMAGE_TYPE_RADIANT) reason = PICK(RADIANT_SELF);
+        else if(type == DAMAGE_TYPE_SLASHING) reason = PICK(SLASHING_SELF);
+        else if(type == DAMAGE_TYPE_SONIC) reason = PICK(SONIC_SELF);
+        else if(type == DAMAGE_TYPE_EMOTIONAL) reason = PICK(EMOTIONAL_SELF);
+        else if(type == DAMAGE_TYPE_MEDICAL) reason = PICK(MEDICAL_SELF);
+        else if(type == DAMAGE_TYPE_REPAIR) reason = PICK(REPAIR_SELF);
+        else if(type == DAMAGE_TYPE_EXPLOSIVE) reason = PICK(EXPLOSIVE_SELF);
+        else if(type == DAMAGE_TYPE_CRUSHING) reason = PICK(CRUSHING_SELF);
+        else if(type == DAMAGE_TYPE_ANTI_ARMOR) reason = PICK(ANTI_ARMOR_SELF);
+        else if(type == DAMAGE_TYPE_SUFFOCATION) reason = PICK(SUFFOCATION_SELF);
+        else if(type == -100) reason = "TARGET team-killed the only teammate within reach: TARGET";
+        else reason = "TARGET was killed by TARGET's own " + DamageTypeAsNoun(type) + " damage. Impressive";
+    }
+    else
+    {
+        // Attacker vs victim: OWNER-first phrasing
+        if(type == DAMAGE_TYPE_IMPACT) reason = PICK(IMPACT);
+        else if(type == DAMAGE_TYPE_GENERIC) reason = PICK(GENERIC);
+        else if(type == DAMAGE_TYPE_ACID) reason = PICK(ACID);
+        else if(type == DAMAGE_TYPE_BLUDGEONING) reason = PICK(BLUDGEONING);
+        else if(type == DAMAGE_TYPE_COLD) reason = PICK(COLD);
+        else if(type == DAMAGE_TYPE_ELECTRIC) reason = PICK(ELECTRIC);
+        else if(type == DAMAGE_TYPE_FIRE) reason = PICK(FIRE);
+        else if(type == DAMAGE_TYPE_FORCE) reason = PICK(FORCE);
+        else if(type == DAMAGE_TYPE_NECROTIC) reason = PICK(NECROTIC);
+        else if(type == DAMAGE_TYPE_PIERCING) reason = PICK(PIERCING);
+        else if(type == DAMAGE_TYPE_POISON) reason = PICK(POISON);
+        else if(type == DAMAGE_TYPE_PSYCHIC) reason = PICK(PSYCHIC);
+        else if(type == DAMAGE_TYPE_RADIANT) reason = PICK(RADIANT);
+        else if(type == DAMAGE_TYPE_SLASHING) reason = PICK(SLASHING);
+        else if(type == DAMAGE_TYPE_SONIC) reason = PICK(SONIC);
+        else if(type == DAMAGE_TYPE_EMOTIONAL) reason = PICK(EMOTIONAL);
+        else if(type == DAMAGE_TYPE_MEDICAL) reason = PICK(MEDICAL);
+        else if(type == DAMAGE_TYPE_REPAIR) reason = PICK(REPAIR);
+        else if(type == DAMAGE_TYPE_EXPLOSIVE) reason = PICK(EXPLOSIVE);
+        else if(type == DAMAGE_TYPE_CRUSHING) reason = PICK(CRUSHING);
+        else if(type == DAMAGE_TYPE_ANTI_ARMOR) reason = PICK(ANTI_ARMOR);
+        else if(type == -100) reason = PICK(FRIENDLY_FIRE);
+        else if(type == DAMAGE_TYPE_SUFFOCATION) reason = PICK(SUFFOCATION);
+        else reason = "OWNER killed TARGET with " + DamageTypeAsNoun(type) + " damage";
+    }
+
+    reason = llReplaceSubString(reason, "TARGET", "secondlife:///app/agent/" + (string)target + "/inspect", 0);
+    reason = llReplaceSubString(reason, "OWNER", "secondlife:///app/agent/" + (string)owner + "/inspect", 0);
+    return reason;
 }
+
 
 
 /*
