@@ -66,6 +66,20 @@ integer TimestampIsBefore(string a, string b)
     return FALSE;
 }
 
+integer TimestampCompare(string a, string b)
+{
+    integer aDate = (integer)(llGetSubString(a, 0, 3) + llGetSubString(a, 5, 6) + llGetSubString(a, 8, 9));
+    integer bDate = (integer)(llGetSubString(b, 0, 3) + llGetSubString(b, 5, 6) + llGetSubString(b, 8, 9));
+    if(aDate < bDate) return -1;
+    else if(aDate > bDate) return 1;
+    float aTime = (float)(llGetSubString(a, 11, 12) + llGetSubString(a, 14, 15) + llGetSubString(a, 17, -1));
+    float bTime = (float)(llGetSubString(b, 11, 12) + llGetSubString(b, 14, 15) + llGetSubString(b, 17, -1));
+    llOwnerSay("aTime: " + (string)aTime + "; bTime: " + (string)bTime);
+    if(aTime < bTime) return -1;
+    else if(aTime > bTime) return 1;
+    return 0;
+}
+
 // Milliseconds since beginning of month for timestamp
 integer Timestamp2Millisec(string stamp)
 {
