@@ -833,26 +833,43 @@ string DamageTypeAsReason(integer type, key owner, key target)
 }
 
 
-
-/*
-How to apply anti-armor damage in Combat2, with compatibility fallback to LBA (Listen Based Armor):
-
-// Anti-Armor damage
-if(llGetHealth(target) > 0) llDamage(target, damage, DAMAGE_TYPE_ANTI_ARMOR);
-else
+// Applies anti-armor damage in Combat2, with compatibility fallback to LBA (Listen Based Armor)
+DamageArmor(key target, float damage)
 {
-    // LBA damage fallback
-    string desc = (string)llGetObjectDetails(target, [OBJECT_DESC]);
-    if(llGetSubString(desc, 0, 5) == "LBA.v.")
+    // Has Combat2 health, apply ANTI_ARMOR type
+    if(llGetHealth(target) > 0) llDamage(target, damage, DAMAGE_TYPE_ANTI_ARMOR);
+    
+    else
     {
-        integer channelLBA = integer("0x" + llGetSubString(llMD5String(target, 0), 0, 3));
-        llRegionSayTo(target, channelLBA, target + "," + (string)damage);
+        // LBA damage fallback
+        string desc = (string)llGetObjectDetails(target, [OBJECT_DESC]);
+        if(llGetSubString(desc, 0, 5) == "LBA.v.")
+        {
+            integer channelLBA = integer("0x" + llGetSubString(llMD5String(target, 0), 0, 3));
+            llRegionSayTo(target, channelLBA, (string)target + "," + (string)damage);
+        }
     }
 }
 
+// Alternatively, if you have llDetectedType available, such as from a collision or a sensor,
+// use that instead of llGetHealth as you can check for DAMAGEABLE which is more accurate
+// as it signifies the object can actually process damage
+DamageArmorDetected(integer index, float damage)
+{
+    key target = llDetectedKey(index);
+    integer detectedType = llDetectedType(index);
 
-Alternatively if you have llDetectedType available, such as from a collision or a sensor,
-use that instead of llGetHealth as you can check for DAMAGEABLE which is better, as it
-signifies the object can actually *process damage*
-
-*/
+    // Can process damage, so apply ANTI_ARMOR type
+    if(detectedType & DAMAGEABLE) llDamage(target, damage, DAMAGE_TYPE_ANTI_ARMOR);
+    
+    else
+    {
+        // LBA damage fallback
+        string desc = (string)llGetObjectDetails(target, [OBJECT_DESC]);
+        if(llGetSubString(desc, 0, 5) == "LBA.v.")
+        {
+            integer channelLBA = integer("0x" + llGetSubString(llMD5String(target, 0), 0, 3));
+            llRegionSayTo(target, channelLBA, (string)target + "," + (string)damage);
+        }
+    }
+}
