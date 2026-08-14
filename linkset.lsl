@@ -167,6 +167,12 @@ LinksetResourceReset(string kv, list reset) {
     if(params) llSetLinkPrimitiveParamsFast(0, params);
 }
 
+integer LinksetResourceLookup(string kv, integer index) {
+    string links = llLinksetDataRead(kv);
+    if(links) return 1 + llOrd(links, index);
+    else return FALSE;
+}
+
 
 
 // These two functions build upon linkset resources at a higher level, so that you can trade linkset numbers between resources
