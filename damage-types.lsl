@@ -837,7 +837,11 @@ string DamageTypeAsReason(integer type, key owner, key target)
 DamageArmor(key target, float damage)
 {
     // Has Combat2 health, apply ANTI_ARMOR type
-    if(llGetHealth(target) > 0) llDamage(target, damage, DAMAGE_TYPE_ANTI_ARMOR);
+    if(llGetHealth(target) > 0)
+    {
+        llDamage(target, damage, DAMAGE_TYPE_ANTI_ARMOR);
+        // llOwnerSay("Applied " + (string)damage + " anti-armor damage to " + (string)target);
+    }
     
     else
     {
@@ -847,6 +851,7 @@ DamageArmor(key target, float damage)
         {
             integer channelLBA = integer("0x" + llGetSubString(llMD5String(target, 0), 0, 3));
             llRegionSayTo(target, channelLBA, (string)target + "," + (string)damage);
+            // llOwnerSay("Applied " + (string)damage + " LBA damage to " + (string)target);
         }
     }
 }
