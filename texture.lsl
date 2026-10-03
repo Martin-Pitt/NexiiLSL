@@ -1,5 +1,5 @@
 // This is the heart of managing texture coordinates, by converting pixel coordinates into SL texture uv coords
-#define TEXTURE_REPEAT(w, h, textureWidth, textureHeight) <width / float(textureWidth), height / float(textureHeight), 0>
+#define TEXTURE_REPEAT(width, height, textureWidth, textureHeight) <width / float(textureWidth), height / float(textureHeight), 0>
 #define TEXTURE_OFFSET(x, y, textureWidth, textureHeight) \
     <((x) - float(textureWidth)/2) / float(textureWidth),\
     -((y) - float(textureHeight)/2) / float(textureHeight), 0>
