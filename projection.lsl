@@ -10,6 +10,7 @@ vector WorldToHUD(vector v) {
     v = (v - camPos) / camRot; // Global to Local
     if(v.x != 0.0) v = <v.x, (v.y*inFOV)/v.x/2, (v.z*inFOV)/v.x/2>; // Local to Screen
     else v = <0, (v.y*inFOV)/2, (v.z*inFOV)/2>;
+    return v;
 }
 
 vector HUDToWorld(vector v) {

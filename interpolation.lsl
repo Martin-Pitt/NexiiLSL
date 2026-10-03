@@ -98,9 +98,9 @@ rotation interpolateRotationCosine(rotation a, rotation b, float t) {
 }
 
 rotation interpolateRotationCubic(rotation a, rotation b, rotation c, rotation d, float t) {
-    return rLin(
-        rLin(a,b,t),
-        rLin(c,d,t),
+    return interpolateRotation(
+        interpolateRotation(a,b,t),
+        interpolateRotation(c,d,t),
         2*t*(1-t)
     );
 }

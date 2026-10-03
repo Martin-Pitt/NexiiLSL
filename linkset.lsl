@@ -108,7 +108,7 @@ ObjectLinksetScan(object,
 
 
 // Scans an object for a list of sitting avatars
-list ObjectLinksetSittingAvatars(object) {
+list ObjectLinksetSittingAvatars(key object) {
     list details = llGetObjectDetails(object, [OBJECT_PRIM_COUNT, OBJECT_SIT_COUNT]);
     integer prims = llList2Integer(details, 0);
     integer sitters = llList2Integer(details, 1);
